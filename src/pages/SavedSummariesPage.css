@@ -1,0 +1,100 @@
+/* src/pages/SavedSummariesPage.css */
+
+.ss-page {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding: 40px 16px 80px;
+  font-family: 'Outfit', 'Segoe UI', sans-serif;
+}
+
+.ss-container {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.ss-header { animation: ssFadeUp 0.4s ease; }
+
+@keyframes ssFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ss-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(22px, 5vw, 30px);
+  font-weight: 900;
+  color: #0f172a;
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+}
+
+.ss-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ── Loading ── */
+.ss-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.ss-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid #e2e8f0;
+  border-top-color: #0066cc;
+  border-radius: 50%;
+  animation: ssSpin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ssSpin { to { transform: rotate(360deg); } }
+
+/* ── Empty ── */
+.ss-empty {
+  background: #fff;
+  border: 1.5px dashed #e2e8f0;
+  border-radius: 12px;
+  padding: 64px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ss-empty-icon  { font-size: 40px; margin-bottom: 4px; }
+.ss-empty-title { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
+.ss-empty-sub   { font-size: 14px; color: #64748b; margin: 0; max-width: 340px; line-height: 1.6; }
+
+.ss-empty-cta {
+  margin-top: 16px;
+  background: #0066cc;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 11px 24px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ss-empty-cta:hover { background: #0052a3; }
+
+/* ── List ── */
+.ss-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: ssFadeUp 0.4s ease 0.05s both;
+}

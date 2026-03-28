@@ -1,0 +1,122 @@
+/* src/components/SummaryCard/SummaryCard.css */
+
+.summary-card {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  position: relative;
+  font-family: 'Outfit', 'Segoe UI', sans-serif;
+}
+
+.summary-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  border-color: #cbd5e1;
+}
+
+.summary-card.is-chapter {
+  border-left: 3px solid #0066cc;
+}
+
+.summary-card.is-quick {
+  border-left: 3px solid #22c55e;
+}
+
+/* ── Badge ── */
+.summary-card-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Header ── */
+.summary-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-card-filename {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.summary-card-meta {
+  font-size: 12.5px;
+  color: #94a3b8;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* ── Preview ── */
+.summary-card-preview {
+  font-size: 13.5px;
+  color: #475569;
+  line-height: 1.6;
+  margin: 0;
+  /* Strip markdown asterisks for clean preview */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── Actions ── */
+.summary-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.sc-btn {
+  padding: 7px 16px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.sc-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sc-btn-view {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.sc-btn-view:hover:not(:disabled) { background: #e2e8f0; }
+
+.sc-btn-copy {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+.sc-btn-copy:hover:not(:disabled) { background: #dcfce7; }
+.sc-btn-copy.copying {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.sc-btn-delete {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  margin-left: auto;
+}
+.sc-btn-delete:hover:not(:disabled) { background: #fee2e2; }

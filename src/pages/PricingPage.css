@@ -1,0 +1,430 @@
+/* src/pages/PricingPage.css */
+
+/* ── Uses the same Google Fonts as your homepage — already in your index.html:
+   Playfair Display (headings) + Outfit (body)
+   If not present, add:
+   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+──────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Exact values from your homepage ── */
+  --pp-bg:             #f5f5f5;
+  --pp-surface:        #ffffff;
+  --pp-surface-2:      #f0f0f0;
+  --pp-border:         #e2e8f0;
+  --pp-border-active:  #bbf7d0;
+
+  /* Blue CTA — matches your "Upload PDF File" button */
+  --pp-blue:           #0066cc;
+  --pp-blue-hover:     #0052a3;
+  --pp-blue-shadow:    rgba(0, 102, 204, 0.2);
+
+  /* Green accent — matches your badge + SVG underline */
+  --pp-green:          #22c55e;
+  --pp-green-dark:     #15803d;
+  --pp-green-light:    #f0fdf4;
+  --pp-green-border:   #bbf7d0;
+
+  --pp-text:           #0f172a;
+  --pp-text-2:         #334155;
+  --pp-muted:          #64748b;
+  --pp-muted-2:        #94a3b8;
+
+  --pp-shadow:         0 2px 10px rgba(0,0,0,0.1);
+  --pp-shadow-card:    0 4px 24px rgba(0,0,0,0.08);
+  --pp-radius:         12px;
+
+  --pp-font-display:   'Playfair Display', Georgia, serif;
+  --pp-font-body:      'Outfit', 'Segoe UI', sans-serif;
+}
+
+/* ── Page ─────────────────────────────────────────────────────────────── */
+.pricing-page {
+  min-height: 100vh;
+  background: var(--pp-bg);
+  padding: 32px 16px 80px;
+  font-family: var(--pp-font-body);
+  color: var(--pp-text);
+}
+
+/* ── Back button ──────────────────────────────────────────────────────── */
+.pricing-back {
+  background: transparent;
+  border: none;
+  color: var(--pp-muted);
+  font-size: 14px;
+  font-family: var(--pp-font-body);
+  cursor: pointer;
+  padding: 8px 0;
+  margin-bottom: 40px;
+  display: block;
+  transition: color 0.15s;
+}
+.pricing-back:hover { color: var(--pp-text); }
+
+/* ── Container ────────────────────────────────────────────────────────── */
+.pricing-container {
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+.pricing-header {
+  text-align: center;
+  margin-bottom: 40px;
+  animation: ppFadeUp 0.5s ease;
+}
+
+@keyframes ppFadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Green badge — identical to your homepage "AI-Powered Study Tool" badge */
+.pricing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--pp-green-light);
+  border: 1px solid var(--pp-green-border);
+  border-radius: 99px;
+  padding: 5px 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--pp-green-dark);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.pricing-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pp-green);
+  flex-shrink: 0;
+}
+
+/* Title — Playfair Display, matches your homepage h1 */
+.pricing-title {
+  font-family: var(--pp-font-display);
+  font-size: clamp(26px, 6vw, 40px);
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--pp-text);
+  margin: 0 0 12px;
+}
+
+/* Green accent bar — matches your homepage divider */
+.pricing-title-bar {
+  width: 48px;
+  height: 4px;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  border-radius: 4px;
+  margin: 16px auto 20px;
+}
+
+.pricing-subtitle {
+  font-size: 15.5px;
+  color: var(--pp-muted);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ── Card — matches your homepage white card with shadow ──────────────── */
+.pricing-card {
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius);
+  padding: 36px 32px 32px;
+  box-shadow: var(--pp-shadow);
+  position: relative;
+  animation: ppFadeUp 0.5s ease 0.1s both;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.pricing-card.is-active {
+  border-color: var(--pp-green-border);
+  box-shadow: var(--pp-shadow-card), 0 0 0 1px rgba(34,197,94,0.15);
+}
+
+/* ── Current plan badge ───────────────────────────────────────────────── */
+.pricing-current-badge {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--pp-green);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 16px;
+  border-radius: 99px;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+  font-family: var(--pp-font-body);
+}
+
+/* ── Plan header ──────────────────────────────────────────────────────── */
+.pricing-plan-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.pricing-plan-name {
+  font-family: var(--pp-font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--pp-text);
+  margin: 0 0 4px;
+}
+
+.pricing-plan-desc {
+  font-size: 13px;
+  color: var(--pp-muted);
+  margin: 0;
+}
+
+.pricing-plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Price in blue — matches your CTA button color */
+.pricing-price-amount {
+  font-family: var(--pp-font-display);
+  font-size: 36px;
+  font-weight: 900;
+  color: var(--pp-blue);
+  line-height: 1;
+}
+
+.pricing-price-period {
+  font-size: 14px;
+  color: var(--pp-muted);
+}
+
+/* ── Features list ────────────────────────────────────────────────────── */
+.pricing-features {
+  list-style: none;
+  margin: 0 0 28px;
+  padding: 0;
+  border-top: 1px solid var(--pp-border);
+  padding-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pricing-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14.5px;
+  color: var(--pp-text-2);
+}
+
+/* Green check — matches your homepage green palette */
+.pricing-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--pp-green-light);
+  border: 1px solid var(--pp-green-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--pp-green-dark);
+  flex-shrink: 0;
+  font-weight: 800;
+}
+
+/* ── Notices ──────────────────────────────────────────────────────────── */
+.pricing-expiry-notice {
+  background: var(--pp-green-light);
+  border: 1px solid var(--pp-green-border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13.5px;
+  color: var(--pp-green-dark);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.pricing-login-notice {
+  background: var(--pp-surface-2);
+  border: 1px solid var(--pp-border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13.5px;
+  color: var(--pp-muted);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.pricing-login-link {
+  background: none;
+  border: none;
+  color: var(--pp-blue);
+  font-weight: 600;
+  font-size: 13.5px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+.pricing-login-link:hover { color: var(--pp-blue-hover); }
+
+.pricing-success {
+  background: var(--pp-green-light);
+  border: 1px solid var(--pp-green-border);
+  border-radius: 10px;
+  padding: 13px 16px;
+  font-size: 13.5px;
+  color: var(--pp-green-dark);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.pricing-error {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+  padding: 13px 16px;
+  font-size: 13.5px;
+  color: #dc2626;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+/* ── CTA button — matches your "Upload PDF File" blue button exactly ──── */
+.pricing-cta {
+  width: 100%;
+  background: var(--pp-blue);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 16px 24px;
+  font-size: 15.5px;
+  font-weight: 600;
+  font-family: var(--pp-font-body);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background-color 0.2s, transform 0.1s, box-shadow 0.15s;
+  letter-spacing: -0.1px;
+}
+
+.pricing-cta:hover:not(:disabled) {
+  background: var(--pp-blue-hover);
+  box-shadow: 0 4px 16px var(--pp-blue-shadow);
+  transform: translateY(-1px);
+}
+
+.pricing-cta:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.pricing-cta:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Already premium state — green tint */
+.pricing-cta.is-premium {
+  background: var(--pp-green-light);
+  color: var(--pp-green-dark);
+  border: 1.5px solid var(--pp-green-border);
+}
+
+/* ── Spinner ──────────────────────────────────────────────────────────── */
+.pricing-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid rgba(255,255,255,0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: ppSpin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ppSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Guarantee text ───────────────────────────────────────────────────── */
+.pricing-guarantee {
+  text-align: center;
+  font-size: 12px;
+  color: var(--pp-muted-2);
+  margin: 14px 0 0;
+}
+
+/* ── FAQ — matches your homepage card style ───────────────────────────── */
+.pricing-faq {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius);
+  box-shadow: var(--pp-shadow);
+  overflow: hidden;
+  animation: ppFadeUp 0.5s ease 0.2s both;
+}
+
+.pricing-faq-item {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--pp-border);
+}
+
+.pricing-faq-item:last-child {
+  border-bottom: none;
+}
+
+.pricing-faq-item strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pp-text);
+  margin-bottom: 6px;
+  font-family: var(--pp-font-body);
+}
+
+.pricing-faq-item p {
+  font-size: 13.5px;
+  color: var(--pp-muted);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .pricing-card {
+    padding: 28px 20px 24px;
+  }
+  .pricing-plan-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .pricing-price-amount {
+    font-size: 30px;
+  }
+  .pricing-faq-item {
+    padding: 16px 18px;
+  }
+}
