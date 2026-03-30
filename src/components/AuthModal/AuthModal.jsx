@@ -68,7 +68,7 @@ export default function AuthModal({
       <div className="auth-modal-card">
         {/* ── Header ── */}
         <div className="auth-modal-header">
-          <div className="auth-modal-badge">📄 SummarizeAI</div>
+          <div className="auth-modal-badge">📄 Essential Summary</div>
           <button
             className="auth-modal-close"
             onClick={onClose}
