@@ -63,8 +63,8 @@ export default function Navbar() {
         {/* ── Logo — image + app name ── */}
         <NavLink to="/" className="navbar-logo" onClick={handleNavClick}>
           <img
-            src="/es.webp"          /* ← replace with your actual logo path */
-            alt="SummarizeAI logo"
+            src="/es.png"          /* ← replace with your actual logo path */
+            alt="Essential Summary logo"
             className="navbar-logo-img"
           />
           <span className="navbar-logo-text">Essential Summary</span>
@@ -119,6 +119,16 @@ export default function Navbar() {
             <span className="dropdown-icon">⚡</span>
             Pricing
           </NavLink>
+
+          <NavLink
+            to="/contact"
+            className={({ isActive }) => `dropdown-link ${isActive ? "active" : ""}`}
+            onClick={handleNavClick}
+          >
+            <span className="dropdown-icon">📊</span>
+            ContactPage
+          </NavLink>
+
 
           <div className="dropdown-divider" />
 

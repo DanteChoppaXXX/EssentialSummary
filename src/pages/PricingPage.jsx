@@ -32,7 +32,7 @@ const PLAN = {
   period:       "/ month",
   features: [
     "Unlimited Quick Summaries",
-    "Summarize full chapters",
+    "Summarize multiple pages",
     "Priority AI processing",
     "Access to all future features",
     "Cancel anytime",

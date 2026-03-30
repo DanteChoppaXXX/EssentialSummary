@@ -116,7 +116,7 @@ const FloatingActionButton = ({ onSummarizePage, onSummarizeChapter }) => {
             }}>
               <BookOpen size={18} color="#7b1fa2" />
             </div>
-            <span>Summarize Chapter</span>
+            <span>Multi-Page Summary</span>
           </button>
         </div>
       )}

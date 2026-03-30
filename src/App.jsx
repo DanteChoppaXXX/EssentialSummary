@@ -5,13 +5,13 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
 import HomePage from "./pages/HomePage";
-import QuickSummary from "./pages/QuickSummary";
 import PricingPage from "./pages/PricingPage";
 import DashboardPage from "./pages/DashboardPage";
 import SavedSummariesPage from "./pages/SavedSummariesPage";
 import ProfilePage from "./pages/ProfilePage";
 import Navbar from "./components/Navbar/Navbar";
 import ScrollToTop from "./components/ScrollToTop";
+import ContactPage from "./pages/ContactPage";
 
 export default function App() {
   return (
@@ -27,6 +27,8 @@ export default function App() {
           <Route path="/signin" element={<SignIn />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/" element={<HomePage />} />
+
+          <Route path="/contact" element={<ContactPage />} />
 
           {/* Protected route — only accessible when logged in */}
           <Route
@@ -55,7 +57,6 @@ export default function App() {
           />
         {/* ── NEW: QuickSummary is public — anonymous users can access it ── */}
               {/* No ProtectedRoute wrapper — the page handles its own access logic */}
-              <Route path="/quicksummary" element={<QuickSummary />} />
           {/* Default: redirect root to sign in */}
           <Route path="/" element={<Navigate to="/homepage" replace />} />
 
