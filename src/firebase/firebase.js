@@ -2,6 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getAnalytics } from "firebase/analytics";
 
 // All values come from your .env file (Vite uses import.meta.env)
 const firebaseConfig = {
@@ -12,6 +13,7 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
+  measurementId:meta.env.VITE_FIREBASE_MEASUREMENT_ID 
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -19,5 +21,6 @@ const app = initializeApp(firebaseConfig);
 // Export auth and firestore for use throughout the app
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+const analytics = getAnalytics(app);
 
 export default app;
