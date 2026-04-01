@@ -12,6 +12,7 @@ import ProfilePage from "./pages/ProfilePage";
 import Navbar from "./components/Navbar/Navbar";
 import ScrollToTop from "./components/ScrollToTop";
 import ContactPage from "./pages/ContactPage";
+import ImageSummaryPage from "./pages/ImageSummaryPage";
 
 export default function App() {
   return (
@@ -55,6 +56,15 @@ export default function App() {
               </ProtectedRoute>
             } 
           />
+          <Route 
+            path="/image-summary" 
+            element={
+              <ProtectedRoute>
+                <ImageSummaryPage />
+              </ProtectedRoute>
+            } 
+          />
+
         {/* ── NEW: QuickSummary is public — anonymous users can access it ── */}
               {/* No ProtectedRoute wrapper — the page handles its own access logic */}
           {/* Default: redirect root to sign in */}

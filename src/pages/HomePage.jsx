@@ -173,10 +173,10 @@ function LandingPage({ onUpload, onSample, navigate, openSignUp }) {
             >Upload PDF File</label>
             <input id="file-upload" type="file" accept="application/pdf" onChange={onUpload} style={{ display:'none' }} />
             <div style={{ textAlign:'center', margin:'16px 0', color:'#666', fontSize:'clamp(13px,3vw,14px)' }}>or</div>
-            <button onClick={onSample} style={{ width:'100%', padding:'clamp(12px,3vw,16px) clamp(16px,4vw,24px)', backgroundColor:'#f0f0f0', color:'#333', border:'1px solid #ddd', borderRadius:'8px', cursor:'pointer', fontSize:'clamp(14px,3.5vw,16px)', fontWeight:'500', transition:'background-color 0.2s', boxSizing:'border-box' }}
+            <button onClick={() => navigate('/image-summary')} style={{ width:'100%', padding:'clamp(12px,3vw,16px) clamp(16px,4vw,24px)', backgroundColor:'#f0f0f0', color:'#333', border:'1px solid #ddd', borderRadius:'8px', cursor:'pointer', fontSize:'clamp(14px,3.5vw,16px)', fontWeight:'500', transition:'background-color 0.2s', boxSizing:'border-box' }}
               onMouseEnter={(e)=>e.target.style.backgroundColor='#e5e5e5'}
               onMouseLeave={(e)=>e.target.style.backgroundColor='#f0f0f0'}
-            >Load Sample PDF</button>
+            >Upload Photo Of Page</button>
           </div>
 
           <p style={{ color:'#666', fontSize:'clamp(13px,3vw,14px)', textAlign:'center', lineHeight:'1.5', margin:0, padding:'0 10px' }}>
@@ -294,7 +294,7 @@ function LandingPage({ onUpload, onSample, navigate, openSignUp }) {
             <div style={{ display:'flex', gap:'48px', flexWrap:'wrap' }}>
               <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
                 <span style={{ fontSize:'11.5px', fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.08em' }}>Product</span>
-                {[['/', 'Home'], ['/pricing', 'Pricing'], ['/dashboard', 'Dashboard'], ['/summaries', 'Summaries'], ['/contact', 'Contact']].map(([to, label]) => (
+                {[['/', 'Home'], ['/pricing', 'Pricing'], ['/dashboard', 'Dashboard'], ['/summaries', 'Summaries'], ['/contact', 'Contact'], ['/image-summary', 'Image Summary']].map(([to, label]) => (
                   <button key={to} onClick={() => navigate(to)}
                     style={{ background:'none', border:'none', color:'#475569', fontSize:'14px', cursor:'pointer', padding:0, textAlign:'left', fontFamily:"'Outfit',sans-serif", transition:'color 0.15s' }}
                     onMouseEnter={(e)=>e.target.style.color='#f1f5f9'}

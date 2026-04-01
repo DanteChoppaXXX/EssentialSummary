@@ -129,6 +129,15 @@ export default function Navbar() {
             ContactPage
           </NavLink>
 
+          <NavLink
+              to="/image-summary"
+              className={({ isActive }) => `dropdown-link ${isActive ? "active" : ""}`}
+              onClick={handleNavClick}
+            >
+              <span className="dropdown-icon">📸</span>
+              Image Summary
+            </NavLink>
+
 
           <div className="dropdown-divider" />
 

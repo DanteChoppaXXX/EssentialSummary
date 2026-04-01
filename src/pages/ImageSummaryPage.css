@@ -1,0 +1,390 @@
+/* src/pages/ImageSummaryPage.css */
+/* Consistent with homepage: #f5f5f5 bg, Playfair Display headings,
+   Outfit body, #0066cc blue, #22c55e green, white cards with shadows */
+
+.isp-page {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding: 64px 20px 80px;
+  font-family: 'Outfit', 'Segoe UI', sans-serif;
+}
+
+.isp-container {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ── Header ── */
+.isp-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: ispFadeUp 0.4s ease;
+}
+
+@keyframes ispFadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Premium badge — amber to distinguish from free green */
+.isp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 99px;
+  padding: 5px 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #92400e;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.isp-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f59e0b;
+  flex-shrink: 0;
+}
+
+.isp-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(26px, 5vw, 38px);
+  font-weight: 900;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+/* Green divider bar — same as homepage */
+.isp-title-bar {
+  width: 48px;
+  height: 4px;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  border-radius: 4px;
+  margin: 20px auto 20px;
+}
+
+.isp-subtitle {
+  font-size: 15.5px;
+  color: #64748b;
+  margin: 0 0 16px;
+  line-height: 1.65;
+  max-width: 480px;
+}
+
+.isp-tip {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 9px;
+  padding: 11px 16px;
+  font-size: 13.5px;
+  color: #15803d;
+  line-height: 1.5;
+  max-width: 480px;
+}
+
+/* ── Upload card ── */
+.isp-card {
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: ispFadeUp 0.4s ease 0.08s both;
+}
+
+/* ── Dropzone ── */
+.isp-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 48px 24px;
+  background: #f8fafc;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.isp-dropzone:hover {
+  border-color: #0066cc;
+  background: #eff6ff;
+}
+
+.isp-dropzone-icon { font-size: 40px; }
+
+.isp-dropzone-primary {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.isp-dropzone-secondary {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+/* ── Image preview ── */
+.isp-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.isp-preview-img {
+  max-width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.isp-preview-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.isp-preview-name {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.isp-change-btn {
+  background: none;
+  border: none;
+  color: #0066cc;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+.isp-change-btn:hover:not(:disabled) { color: #0052a3; }
+.isp-change-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Status ── */
+.isp-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 9px;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #1d4ed8;
+  font-weight: 500;
+}
+
+.isp-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(29,78,216,0.25);
+  border-top-color: #1d4ed8;
+  border-radius: 50%;
+  animation: ispSpin 0.65s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ispSpin { to { transform: rotate(360deg); } }
+
+/* ── Error ── */
+.isp-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1.5px solid #fca5a5;
+  border-radius: 9px;
+  padding: 12px 16px;
+  font-size: 13.5px;
+  color: #dc2626;
+  line-height: 1.5;
+}
+
+/* ── Action buttons ── */
+.isp-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Blue primary — matches homepage Upload button */
+.isp-btn-primary {
+  flex: 1;
+  min-width: 160px;
+  background: #0066cc;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 13px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.isp-btn-primary:hover:not(:disabled) { background: #0052a3; transform: translateY(-1px); }
+.isp-btn-primary:active:not(:disabled) { transform: translateY(0); }
+.isp-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.isp-btn-secondary {
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 9px;
+  padding: 13px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.isp-btn-secondary:hover:not(:disabled) { background: #e5e5e5; }
+.isp-btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── Result card ── */
+.isp-result-card {
+  background: #ffffff;
+  border: 1.5px solid #bbf7d0;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: ispFadeUp 0.35s ease;
+}
+
+.isp-result-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.isp-result-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px;
+}
+
+.isp-result-meta {
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.isp-result-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.isp-copy-btn {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  border-radius: 7px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.isp-copy-btn:hover { background: #dcfce7; }
+
+.isp-reset-btn {
+  background: #f1f5f9;
+  color: #0f172a;
+  border: none;
+  border-radius: 7px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.isp-reset-btn:hover { background: #e2e8f0; }
+
+.isp-result-body {
+  font-size: 14.5px;
+  line-height: 1.8;
+  color: #334155;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 16px;
+}
+
+/* ── Gate notice ── */
+.isp-gate-notice {
+  background: #fffbeb;
+  border: 1.5px solid #fcd34d;
+  border-radius: 12px;
+  padding: 18px 22px;
+  text-align: center;
+  animation: ispFadeUp 0.4s ease 0.12s both;
+}
+
+.isp-gate-notice p {
+  margin: 0;
+  font-size: 14.5px;
+  color: #92400e;
+  line-height: 1.7;
+}
+
+.isp-gate-link {
+  background: none;
+  border: none;
+  color: #0066cc;
+  font-weight: 700;
+  font-size: 14.5px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+.isp-gate-link:hover { color: #0052a3; }
+
+/* ── Mobile ── */
+@media (max-width: 520px) {
+  .isp-card { padding: 22px 16px; }
+  .isp-result-card { padding: 20px 16px; }
+  .isp-dropzone { padding: 36px 16px; }
+  .isp-result-header { flex-direction: column; }
+}
