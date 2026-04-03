@@ -643,7 +643,7 @@ function HomePage() {
                 {summaryType === 'page' ? '📄 Page Summary' : '📚 Multi-Page Summary'}
               </h2>
               <p style={{ fontSize:'14px', color:'#666', marginBottom:'24px' }}>
-                {summaryType === 'page' ? `Summary of page ${currentPage}` : 'Summary of multiple pagee'}
+                {summaryType === 'page' ? `Summary of page ${currentPage}` : 'Summary of multiple pages'}
               </p>
               {isLoading && (
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'40px' }}>
