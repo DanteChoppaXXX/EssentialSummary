@@ -14,8 +14,10 @@ import {
   FileText,
 } from 'lucide-react';
 
-const TOOLBAR_HIDE_DELAY = 2500; // ms idle before toolbar hides
-const HOVER_ZONE_HEIGHT  = 60;   // px from top — moving here reveals toolbar
+const TOOLBAR_HIDE_DELAY = 2500;
+const HOVER_ZONE_HEIGHT  = 60;
+const SWIPE_THRESHOLD    = 50;   // px — minimum horizontal distance to count as a swipe
+const SWIPE_MAX_VERTICAL = 80;   // px — maximum vertical drift still counts as horizontal swipe
 
 const PDFReader = ({ pdfUrl, fileName = 'document.pdf', onPageChange, onPdfLoad }) => {
   const [numPages, setNumPages]           = useState(0);
@@ -28,63 +30,111 @@ const PDFReader = ({ pdfUrl, fileName = 'document.pdf', onPageChange, onPdfLoad 
   const [isFullscreen, setIsFullscreen]   = useState(false);
   const [pdf, setPdf]                     = useState(null);
   const [pageRendering, setPageRendering] = useState(false);
-  const [searchResults, setSearchResults]         = useState([]);
+  const [searchResults, setSearchResults]           = useState([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [pageInputValue, setPageInputValue]         = useState('1');
   const [isPageInputFocused, setIsPageInputFocused] = useState(false);
 
-  // ── Toolbar visibility ──
   const [toolbarVisible, setToolbarVisible] = useState(true);
   const hideTimerRef = useRef(null);
+
+  // ── Touch tracking refs ──
+  const touchStartX  = useRef(null);
+  const touchStartY  = useRef(null);
+  const isSwiping    = useRef(false);   // true once we've committed to a horizontal swipe
 
   const canvasRef    = useRef(null);
   const containerRef = useRef(null);
   const pdfjsLib     = useRef(null);
 
-  // ── Show toolbar and (re)start the hide countdown ──
   const showToolbar = useCallback(() => {
     setToolbarVisible(true);
     clearTimeout(hideTimerRef.current);
-    // Don't auto-hide while search is open or search input is focused
     if (!showSearch) {
-      hideTimerRef.current = setTimeout(() => {
-        setToolbarVisible(false);
-      }, TOOLBAR_HIDE_DELAY);
+      hideTimerRef.current = setTimeout(() => setToolbarVisible(false), TOOLBAR_HIDE_DELAY);
     }
   }, [showSearch]);
 
-  // ── Keep toolbar visible while search is open ──
   useEffect(() => {
     if (showSearch) {
       clearTimeout(hideTimerRef.current);
       setToolbarVisible(true);
     } else {
-      // Restart idle timer when search closes
-      hideTimerRef.current = setTimeout(() => {
-        setToolbarVisible(false);
-      }, TOOLBAR_HIDE_DELAY);
+      hideTimerRef.current = setTimeout(() => setToolbarVisible(false), TOOLBAR_HIDE_DELAY);
     }
     return () => clearTimeout(hideTimerRef.current);
   }, [showSearch]);
 
-  // ── Mouse proximity detection — reveal toolbar when near top ──
   useEffect(() => {
     function handleMouseMove(e) {
-      if (e.clientY <= HOVER_ZONE_HEIGHT) {
-        showToolbar();
-      }
+      if (e.clientY <= HOVER_ZONE_HEIGHT) showToolbar();
     }
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [showToolbar]);
 
-  // ── Start the initial hide timer on mount ──
   useEffect(() => {
     hideTimerRef.current = setTimeout(() => setToolbarVisible(false), TOOLBAR_HIDE_DELAY);
     return () => clearTimeout(hideTimerRef.current);
   }, []);
 
-  // ── Load pdf.js ──
+  // ── Swipe gesture handlers ──────────────────────────────────────────────
+  // Attached to the canvas scroll area so the toolbar and status bar are
+  // excluded from the swipe zone — only the PDF reading area triggers it.
+
+  const handleTouchStart = useCallback((e) => {
+    // Ignore multi-touch (pinch-to-zoom etc.)
+    if (e.touches.length !== 1) return;
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    isSwiping.current   = false;
+  }, []);
+
+  const handleTouchMove = useCallback((e) => {
+    if (touchStartX.current === null) return;
+    if (e.touches.length !== 1) return;
+
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+
+    // Once we detect a clear horizontal intent, prevent vertical scroll
+    // so the page doesn't bounce while swiping
+    if (!isSwiping.current && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+      isSwiping.current = true;
+    }
+
+    if (isSwiping.current) {
+      e.preventDefault(); // stop the page from scrolling vertically during a horizontal swipe
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((e) => {
+    if (touchStartX.current === null) return;
+
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStartX.current;
+    const dy = touch.clientY - touchStartY.current;
+
+    // Reset tracking
+    touchStartX.current = null;
+    touchStartY.current = null;
+    isSwiping.current   = false;
+
+    // Only count as a page swipe if:
+    //   • horizontal distance clears the threshold
+    //   • vertical drift is within the allowed range (not a diagonal scroll)
+    if (Math.abs(dx) < SWIPE_THRESHOLD) return;
+    if (Math.abs(dy) > SWIPE_MAX_VERTICAL) return;
+
+    if (dx < 0) {
+      // Swipe LEFT → next page
+      setCurrentPage(prev => Math.min(prev + 1, numPages));
+    } else {
+      // Swipe RIGHT → previous page
+      setCurrentPage(prev => Math.max(prev - 1, 1));
+    }
+  }, [numPages]);
+
   useEffect(() => {
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
@@ -158,9 +208,7 @@ const PDFReader = ({ pdfUrl, fileName = 'document.pdf', onPageChange, onPdfLoad 
 
   const handleDownload = () => {
     const link = document.createElement('a');
-    link.href     = pdfUrl;
-    link.download = fileName;
-    link.click();
+    link.href = pdfUrl; link.download = fileName; link.click();
   };
 
   const toggleFullscreen = () => {
@@ -207,7 +255,6 @@ const PDFReader = ({ pdfUrl, fileName = 'document.pdf', onPageChange, onPdfLoad 
     goToPage(searchResults[prev]);
   };
 
-  // ── Keyboard shortcuts ──
   useEffect(() => {
     const handler = (e) => {
       if (e.target.tagName === 'INPUT') return;
@@ -227,7 +274,19 @@ const PDFReader = ({ pdfUrl, fileName = 'document.pdf', onPageChange, onPdfLoad 
     return () => window.removeEventListener('keydown', handler);
   }, [currentPage, numPages]);
 
-  // ── Status bar: always show current page even when toolbar is hidden ──
+  // ── Native touch listener with passive:false ─────────────────────────────
+  // React synthetic onTouchMove cannot call preventDefault() on modern mobile
+  // browsers because React registers listeners as passive by default.
+  // We attach directly to the DOM element so we can pass { passive: false }.
+  const canvasAreaRef = useRef(null);
+
+  useEffect(() => {
+    const el = canvasAreaRef.current;
+    if (!el) return;
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    return () => el.removeEventListener('touchmove', handleTouchMove);
+  }, [handleTouchMove]);
+
   const statusBarHeight = 38;
 
   return (
@@ -244,52 +303,31 @@ const PDFReader = ({ pdfUrl, fileName = 'document.pdf', onPageChange, onPdfLoad 
         overflow: 'hidden',
       }}
     >
-      {/* ── Invisible hover zone at very top — always present ── */}
+      {/* ── Invisible hover zone ── */}
       <div
         style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: HOVER_ZONE_HEIGHT,
-          zIndex: 200,
-          pointerEvents: toolbarVisible ? 'none' : 'all',
+          position:'absolute', top:0, left:0, right:0, height:HOVER_ZONE_HEIGHT,
+          zIndex:200, pointerEvents: toolbarVisible ? 'none' : 'all',
         }}
         onMouseEnter={showToolbar}
       />
 
-      {/* ── Toolbar — slides in/out ── */}
+      {/* ── Toolbar (auto-hides) ── */}
       <div
         style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 100,
+          position:'absolute', top:0, left:0, right:0, zIndex:100,
           transform: toolbarVisible ? 'translateY(0)' : 'translateY(-100%)',
           transition: 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
           pointerEvents: toolbarVisible ? 'all' : 'none',
         }}
         onMouseEnter={showToolbar}
       >
-        {/* Main toolbar */}
-        <div style={{
-          backgroundColor: '#252525',
-          padding: '10px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          borderBottom: '1px solid #3a3a3a',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-        }}>
-          {/* Left — navigation */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ backgroundColor:'#252525', padding:'10px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'12px', borderBottom:'1px solid #3a3a3a', boxShadow:'0 2px 8px rgba(0,0,0,0.3)' }}>
+          {/* Left — page navigation */}
+          <div style={{ display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
             <ToolbarButton onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1} tooltip="Previous (←)">
               <ChevronLeft size={20} />
             </ToolbarButton>
-
             <div style={{ display:'flex', alignItems:'center', gap:'8px', backgroundColor:'#333', padding:'5px 12px', borderRadius:'6px', color:'white', fontSize:'14px' }}>
               <input
                 type="number"
@@ -312,13 +350,12 @@ const PDFReader = ({ pdfUrl, fileName = 'document.pdf', onPageChange, onPdfLoad 
               <span style={{ color:'#999' }}>/</span>
               <span>{numPages}</span>
             </div>
-
             <ToolbarButton onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= numPages} tooltip="Next (→)">
               <ChevronRight size={20} />
             </ToolbarButton>
           </div>
 
-          {/* Center — zoom & tools */}
+          {/* Center — zoom & rotate */}
           <div style={{ display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap' }}>
             <ToolbarButton onClick={handleZoomOut} disabled={scale <= 0.5} tooltip="Zoom Out (-)">
               <ZoomOut size={18} />
@@ -358,23 +395,16 @@ const PDFReader = ({ pdfUrl, fileName = 'document.pdf', onPageChange, onPdfLoad 
         {/* Search bar */}
         {showSearch && (
           <div style={{ backgroundColor:'#2a2a2a', padding:'10px 20px', display:'flex', alignItems:'center', gap:'12px', borderBottom:'1px solid #3a3a3a' }}>
-            <input
-              type="text"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
+            <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Search in document..."
-              autoFocus
+              placeholder="Search in document..." autoFocus
               style={{ flex:1, padding:'9px 14px', backgroundColor:'#1e1e1e', color:'white', border:'1px solid #555', borderRadius:'6px', outline:'none', fontSize:'14px' }}
             />
-            <button
-              onClick={handleSearch}
+            <button onClick={handleSearch}
               style={{ padding:'9px 18px', backgroundColor:'#0066cc', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'500', fontSize:'14px' }}
               onMouseEnter={(e) => e.target.style.backgroundColor = '#0052a3'}
               onMouseLeave={(e) => e.target.style.backgroundColor = '#0066cc'}
-            >
-              Find
-            </button>
+            >Find</button>
             {searchResults.length > 0 && (
               <>
                 <div style={{ color:'#999', fontSize:'14px', whiteSpace:'nowrap' }}>{currentSearchIndex + 1} / {searchResults.length}</div>
@@ -389,39 +419,32 @@ const PDFReader = ({ pdfUrl, fileName = 'document.pdf', onPageChange, onPdfLoad 
         )}
       </div>
 
-      {/* ── "Peek" hint when toolbar is hidden ── */}
+      {/* ── Peek hint ── */}
       {!toolbarVisible && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 99,
-            backgroundColor: 'rgba(37,37,37,0.75)',
-            color: '#aaa',
-            fontSize: '11px',
-            padding: '3px 12px',
-            borderRadius: '0 0 8px 8px',
-            pointerEvents: 'none',
-            backdropFilter: 'blur(4px)',
-          }}
-        >
-          Touch to show toolbar
+        <div style={{
+          position:'absolute', top:0, left:'50%', transform:'translateX(-50%)',
+          zIndex:99, backgroundColor:'rgba(37,37,37,0.75)', color:'#aaa',
+          fontSize:'11px', padding:'3px 12px', borderRadius:'0 0 8px 8px',
+          pointerEvents:'none', backdropFilter:'blur(4px)',
+        }}>
+          Move mouse to top to show toolbar
         </div>
       )}
 
-      {/* ── PDF canvas ── */}
+      {/* ── PDF canvas area — swipe zone ─────────────────────────────────────
+          Touch handlers live here so the toolbar and status bar are excluded.
+          passive:false on touchmove allows e.preventDefault() to stop scroll.
+      ──────────────────────────────────────────────────────────────────────── */}
       <div
+        ref={canvasAreaRef}
         style={{
-          flex: 1,
-          overflow: 'auto',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'flex-start',
-          padding: '32px 20px',
-          backgroundColor: '#1e1e1e',
+          flex:1, overflow:'auto', display:'flex', justifyContent:'center',
+          alignItems:'flex-start', padding:'32px 20px', backgroundColor:'#1e1e1e',
         }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        // onTouchMove is attached natively via useEffect above with passive:false
+        // so e.preventDefault() works correctly on all mobile browsers
       >
         {loading ? (
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'20px', marginTop:'100px' }}>
@@ -438,18 +461,9 @@ const PDFReader = ({ pdfUrl, fileName = 'document.pdf', onPageChange, onPdfLoad 
 
       {/* ── Status bar — always visible ── */}
       <div style={{
-        backgroundColor: '#252525',
-        padding: '6px 20px',
-        color: '#999',
-        fontSize: '12.5px',
-        borderTop: '1px solid #3a3a3a',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: '12px',
-        height: statusBarHeight,
-        boxSizing: 'border-box',
-        flexShrink: 0,
+        backgroundColor:'#252525', padding:'6px 20px', color:'#999', fontSize:'12.5px',
+        borderTop:'1px solid #3a3a3a', display:'flex', justifyContent:'space-between',
+        alignItems:'center', gap:'12px', height:statusBarHeight, boxSizing:'border-box', flexShrink:0,
       }}>
         <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
           <FileText size={13} />
@@ -485,19 +499,13 @@ const ToolbarButton = ({ onClick, disabled = false, active = false, primary = fa
     disabled={disabled}
     title={tooltip}
     style={{
-      padding: '8px 12px',
+      padding:'8px 12px',
       backgroundColor: active ? '#0066cc' : primary ? '#0066cc' : '#333',
-      color: 'white',
-      border: 'none',
-      borderRadius: '6px',
+      color:'white', border:'none', borderRadius:'6px',
       cursor: disabled ? 'not-allowed' : 'pointer',
       opacity: disabled ? 0.4 : 1,
-      display: 'flex',
-      alignItems: 'center',
-      gap: '6px',
-      fontSize: '13.5px',
-      fontWeight: '500',
-      transition: 'background-color 0.15s',
+      display:'flex', alignItems:'center', gap:'6px',
+      fontSize:'13.5px', fontWeight:'500', transition:'background-color 0.15s',
       boxShadow: primary ? '0 2px 8px rgba(0,102,204,0.3)' : 'none',
     }}
     onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.backgroundColor = active || primary ? '#0052a3' : '#404040'; }}

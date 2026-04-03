@@ -33,6 +33,7 @@ const PLAN = {
   features: [
     "Unlimited Quick Summaries",
     "Summarize multiple pages",
+    "Image Text Summaries",
     "Priority AI processing",
     "Access to all future features",
     "Cancel anytime",

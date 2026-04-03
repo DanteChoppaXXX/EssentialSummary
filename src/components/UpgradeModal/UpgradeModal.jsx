@@ -61,6 +61,7 @@ export default function UpgradeModal({ isOpen, onClose, onUpgrade, userProfile }
         <ul className="upgrade-features">
           <li><span className="upgrade-check">✓</span> Unlimited Quick Summaries</li>
           <li><span className="upgrade-check">✓</span> Multi-Page Summaries</li>
+          <li><span className="upgrade-check">✓</span> Image Text Summaries</li>
           <li><span className="upgrade-check">✓</span> Priority AI processing</li>
           <li><span className="upgrade-check">✓</span> Access resets every month</li>
         </ul>
