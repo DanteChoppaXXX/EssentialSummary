@@ -244,3 +244,71 @@
     font-size: 21px;
   }
 }
+
+/* ── ADD THESE TO THE BOTTOM OF YOUR EXISTING Auth.css ── */
+
+/* Forgot password link — sits inline next to the Password label */
+.auth-forgot-btn {
+  background: none;
+  border: none;
+  color: var(--accent, #3a6cf4);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+.auth-forgot-btn:hover:not(:disabled) {
+  color: var(--accent-hover, #2d57d1);
+}
+.auth-forgot-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Back to sign in button on the reset panel */
+.auth-back-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #6b7280);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 8px 0 0;
+  text-align: center;
+  width: 100%;
+  transition: color 0.15s;
+}
+.auth-back-btn:hover:not(:disabled) {
+  color: var(--text-primary, #111827);
+}
+
+/* Success box on the reset panel */
+.auth-reset-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  color: #15803d;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.auth-reset-success span {
+  font-size: 18px;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.auth-reset-success p {
+  margin: 0;
+}
+.auth-reset-success strong {
+  font-weight: 700;
+  word-break: break-all;
+}

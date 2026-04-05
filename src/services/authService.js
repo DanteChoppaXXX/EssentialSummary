@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase/firebase";
@@ -18,10 +19,8 @@ export function getAuthErrorMessage(errorCode) {
     "auth/user-not-found": "No account found with this email.",
     "auth/wrong-password": "Incorrect password. Please try again.",
     "auth/invalid-credential": "Incorrect email or password. Please try again.",
-    "auth/too-many-requests":
-      "Too many failed attempts. Please try again later.",
-    "auth/network-request-failed":
-      "Network error. Please check your connection.",
+    "auth/too-many-requests": "Too many failed attempts. Please try again later.",
+    "auth/network-request-failed": "Network error. Please check your connection.",
   };
   return messages[errorCode] || "Something went wrong. Please try again.";
 }
@@ -30,17 +29,9 @@ export function getAuthErrorMessage(errorCode) {
 // Sign Up
 // ---------------------
 export async function signUpWithEmail(email, password) {
-  // 1. Create the Firebase Auth user
-  const userCredential = await createUserWithEmailAndPassword(
-    auth,
-    email,
-    password
-  );
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
-
-  // 2. Create a Firestore document in the "users" collection
   await createUserDocument(user);
-
   return user;
 }
 
@@ -48,11 +39,7 @@ export async function signUpWithEmail(email, password) {
 // Sign In
 // ---------------------
 export async function signInWithEmail(email, password) {
-  const userCredential = await signInWithEmailAndPassword(
-    auth,
-    email,
-    password
-  );
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
   return userCredential.user;
 }
 
@@ -64,16 +51,21 @@ export async function logOut() {
 }
 
 // ---------------------
+// Password Reset
+// Sends a reset email via Firebase Auth.
+// ---------------------
+export async function sendPasswordReset(email) {
+  await sendPasswordResetEmail(auth, email);
+}
+
+// ---------------------
 // Create Firestore user document
 // Called on sign up only
 // ---------------------
 export async function createUserDocument(user) {
   const userRef = doc(db, "users", user.uid);
-
-  // Check if the document already exists (safety check)
   const snapshot = await getDoc(userRef);
   if (snapshot.exists()) return;
-
   await setDoc(userRef, {
     uid: user.uid,
     email: user.email,
@@ -85,7 +77,6 @@ export async function createUserDocument(user) {
 
 // ---------------------
 // Fetch Firestore user profile
-// Useful for loading user data on login
 // ---------------------
 export async function getUserProfile(uid) {
   const userRef = doc(db, "users", uid);
