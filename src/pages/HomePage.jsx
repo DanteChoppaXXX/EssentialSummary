@@ -1,32 +1,38 @@
-// src/pages/HomePage.jsx
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import PDFReader from '../components/PDFReader';
-import FloatingActionButton from '../components/FloatingActionButton';
-import AuthModal from '../components/AuthModal/AuthModal';
-import UpgradeModal from '../components/UpgradeModal/UpgradeModal';
-import SoftWarningBanner from '../components/SoftWarningBanner';
-import FreeTierBanner from '../components/FreeTierBanner';
 
-import { useAuth } from '../context/AuthContext';
-import { useAuthModal } from '../hooks/useAuthModal';
-import { useUpgradeModal } from '../hooks/useUpgradeModal';
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+} from "react";
+
+import PDFReader from "../components/PDFReader";
+import FloatingActionButton from "../components/FloatingActionButton";
+import AuthModal from "../components/AuthModal/AuthModal";
+import UpgradeModal from "../components/UpgradeModal/UpgradeModal";
+import SoftWarningBanner from "../components/SoftWarningBanner";
+import FreeTierBanner from "../components/FreeTierBanner";
+
+import { useAuth } from "../context/AuthContext";
+import { useAuthModal } from "../hooks/useAuthModal";
+import { useUpgradeModal } from "../hooks/useUpgradeModal";
 
 import {
   hasReachedAnonymousQuickSummaryLimit,
   incrementAnonymousQuickSummaryCount,
   getSoftWarningMessage,
-} from '../utils/anonymousUsage';
+} from "../utils/anonymousUsage";
 
 import {
   checkAndResetIfNeeded,
   canUserUseQuickSummary,
   incrementQuickSummaryUsage,
-} from '../services/usageService';
+} from "../services/usageService";
 
 import {
   extractTextFromPage,
   extractCurrentChapter,
-} from '../components/pdfUtils';
+} from "../components/pdfUtils";
 
 import {
   summarizeWithOpenRouter,
@@ -35,361 +41,1585 @@ import {
   saveOpenRouterApiKey,
   validateOpenRouterKey,
   OPENROUTER_MODELS,
-} from '../components/openRouterAPI';
+} from "../components/openRouterAPI";
 
 import { useNavigate } from "react-router-dom";
 import { isPremiumActive } from "../services/premiumService";
 import { saveSummary } from "../services/summaryService";
 
-// ─── Markdown renderer ────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// THEME
+// ─────────────────────────────────────────────────────────────────────────────
+
+const theme = {
+  background: "#f6f8fc",
+  surface: "#ffffff",
+  surfaceSoft: "#f8faff",
+  text: "#0f172a",
+  textSecondary: "#64748b",
+  textMuted: "#94a3b8",
+  border: "#e2e8f0",
+  blue: "#4f46e5",
+  blueDark: "#4338ca",
+  violet: "#7c3aed",
+  green: "#16a34a",
+  greenSoft: "#f0fdf4",
+  greenBorder: "#bbf7d0",
+  dark: "#111827",
+};
+
+const pageFont = "'Outfit', 'Segoe UI', sans-serif";
+const headingFont = "'Playfair Display', Georgia, serif";
+
+const buttonBase = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "8px",
+  padding: "13px 22px",
+  borderRadius: "12px",
+  fontFamily: pageFont,
+  fontSize: "14px",
+  fontWeight: 700,
+  cursor: "pointer",
+  transition:
+    "background 180ms ease, transform 180ms ease, box-shadow 180ms ease",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARKDOWN RENDERER
+// ─────────────────────────────────────────────────────────────────────────────
+
 const MarkdownContent = ({ content }) => {
-  const renderMarkdown = (text) => {
-    if (!text) return null;
-    const lines = text.split('\n');
-    const elements = [];
-    let currentList = [];
-    let inCodeBlock = false;
-    let codeBlockContent = [];
-
-    lines.forEach((line, index) => {
-      if (line.trim().startsWith('```')) {
-        if (inCodeBlock) {
-          elements.push(<pre key={`code-${index}`} style={{ backgroundColor:'#f6f8fa', padding:'16px', borderRadius:'6px', overflow:'auto', fontSize:'14px', fontFamily:'monospace', border:'1px solid #e1e4e8', margin:'16px 0' }}><code>{codeBlockContent.join('\n')}</code></pre>);
-          codeBlockContent = []; inCodeBlock = false;
-        } else { inCodeBlock = true; }
-        return;
-      }
-      if (inCodeBlock) { codeBlockContent.push(line); return; }
-      const headerMatch = line.match(/^(#{1,6})\s+(.+)/);
-      if (headerMatch) {
-        const level = headerMatch[1].length;
-        const sizes = {1:'24px',2:'20px',3:'18px',4:'16px',5:'14px',6:'13px'};
-        const margins = {1:'24px 0 16px 0',2:'20px 0 12px 0',3:'16px 0 10px 0',4:'14px 0 8px 0',5:'12px 0 6px 0',6:'10px 0 6px 0'};
-        elements.push(<h1 key={index} style={{ fontSize:sizes[level], fontWeight:'600', margin:margins[level], color:'#1a1a1a', borderBottom:level<=2?'1px solid #e1e4e8':'none', paddingBottom:level<=2?'8px':'0' }}>{headerMatch[2]}</h1>);
-        return;
-      }
-      const bulletMatch = line.match(/^[\s]*[-*+]\s+(.+)/);
-      if (bulletMatch) { currentList.push(bulletMatch[1]); return; }
-      else if (currentList.length > 0) {
-        elements.push(<ul key={`list-${index}`} style={{ marginLeft:'20px', marginBottom:'16px', lineHeight:'1.8' }}>{currentList.map((item,i)=><li key={i} style={{marginBottom:'8px'}}>{parseInlineMarkdown(item)}</li>)}</ul>);
-        currentList = [];
-      }
-      const numberedMatch = line.match(/^[\s]*(\d+)\.\s+(.+)/);
-      if (numberedMatch) { elements.push(<ol key={index} style={{ marginLeft:'20px', marginBottom:'16px', lineHeight:'1.8' }}><li style={{marginBottom:'8px'}}>{parseInlineMarkdown(numberedMatch[2])}</li></ol>); return; }
-      if (line.match(/^[\s]*[-_*]{3,}[\s]*$/)) { elements.push(<hr key={index} style={{ border:'none', borderTop:'2px solid #e1e4e8', margin:'24px 0' }} />); return; }
-      const quoteMatch = line.match(/^>\s+(.+)/);
-      if (quoteMatch) { elements.push(<blockquote key={index} style={{ borderLeft:'4px solid #dfe2e5', paddingLeft:'16px', margin:'16px 0', color:'#666', fontStyle:'italic' }}>{parseInlineMarkdown(quoteMatch[1])}</blockquote>); return; }
-      if (line.trim()) { elements.push(<p key={index} style={{ marginBottom:'16px', lineHeight:'1.8' }}>{parseInlineMarkdown(line)}</p>); }
-      else { elements.push(<div key={index} style={{ height:'8px' }} />); }
-    });
-    if (currentList.length > 0) {
-      elements.push(<ul key="list-end" style={{ marginLeft:'20px', marginBottom:'16px', lineHeight:'1.8' }}>{currentList.map((item,i)=><li key={i} style={{marginBottom:'8px'}}>{parseInlineMarkdown(item)}</li>)}</ul>);
-    }
-    return elements;
-  };
-
   const parseInlineMarkdown = (text) => {
-    const parts = []; let remaining = text; let key = 0;
-    while (remaining.length > 0) {
-      const boldMatch = remaining.match(/^(.*?)(\*\*|__)(.+?)\2/);
-      if (boldMatch) { if (boldMatch[1]) parts.push(boldMatch[1]); parts.push(<strong key={key++} style={{fontWeight:'600',color:'#1a1a1a'}}>{boldMatch[3]}</strong>); remaining = remaining.slice(boldMatch[0].length); continue; }
-      const italicMatch = remaining.match(/^(.*?)([*_])(.+?)\2/);
-      if (italicMatch) { if (italicMatch[1]) parts.push(italicMatch[1]); parts.push(<em key={key++} style={{fontStyle:'italic'}}>{italicMatch[3]}</em>); remaining = remaining.slice(italicMatch[0].length); continue; }
-      const codeMatch = remaining.match(/^(.*?)`(.+?)`/);
-      if (codeMatch) { if (codeMatch[1]) parts.push(codeMatch[1]); parts.push(<code key={key++} style={{backgroundColor:'#f6f8fa',padding:'2px 6px',borderRadius:'3px',fontSize:'0.9em',fontFamily:'monospace',border:'1px solid #e1e4e8'}}>{codeMatch[2]}</code>); remaining = remaining.slice(codeMatch[0].length); continue; }
-      const linkMatch = remaining.match(/^(.*?)\[(.+?)\]\((.+?)\)/);
-      if (linkMatch) { if (linkMatch[1]) parts.push(linkMatch[1]); parts.push(<a key={key++} href={linkMatch[3]} target="_blank" rel="noopener noreferrer" style={{color:'#0366d6',textDecoration:'none'}}>{linkMatch[2]}</a>); remaining = remaining.slice(linkMatch[0].length); continue; }
-      parts.push(remaining); break;
+    const parts = [];
+    const pattern =
+      /(\*\*(.+?)\*\*|__(.+?)__|(?<!\*)\*([^*]+?)\*(?!\*)|(?<!_)_([^_]+?)_(?!_)|`([^`]+?)`|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))/g;
+
+    let lastIndex = 0;
+    let match;
+    let key = 0;
+
+    while ((match = pattern.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(text.slice(lastIndex, match.index));
+      }
+
+      if (match[2] || match[3]) {
+        parts.push(
+          <strong
+            key={key++}
+            style={{ fontWeight: 700, color: theme.text }}
+          >
+            {match[2] || match[3]}
+          </strong>
+        );
+      } else if (match[4] || match[5]) {
+        parts.push(
+          <em key={key++} style={{ fontStyle: "italic" }}>
+            {match[4] || match[5]}
+          </em>
+        );
+      } else if (match[6]) {
+        parts.push(
+          <code
+            key={key++}
+            style={{
+              background: "#eef2ff",
+              color: "#4338ca",
+              padding: "2px 6px",
+              borderRadius: "5px",
+              border: "1px solid #e0e7ff",
+              fontSize: "0.9em",
+              fontFamily: "monospace",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {match[6]}
+          </code>
+        );
+      } else if (match[7] && match[8]) {
+        parts.push(
+          <a
+            key={key++}
+            href={match[8]}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: theme.blue,
+              textDecoration: "underline",
+              textUnderlineOffset: "3px",
+            }}
+          >
+            {match[7]}
+          </a>
+        );
+      }
+
+      lastIndex = pattern.lastIndex;
     }
+
+    if (lastIndex < text.length) {
+      parts.push(text.slice(lastIndex));
+    }
+
     return parts;
   };
 
-  return <div style={{ wordWrap:'break-word' }}>{renderMarkdown(content)}</div>;
+  const renderMarkdown = (text) => {
+    if (!text) return null;
+
+    const lines = text.split("\n");
+    const elements = [];
+
+    let listItems = [];
+    let listType = null;
+    let inCodeBlock = false;
+    let codeBlockContent = [];
+
+    const flushList = (key) => {
+      if (listItems.length === 0) return;
+
+      const ListTag = listType === "ordered" ? "ol" : "ul";
+
+      elements.push(
+        <ListTag
+          key={`list-${key}`}
+          style={{
+            paddingLeft: "26px",
+            margin: "8px 0 20px",
+            lineHeight: 1.85,
+            color: "#334155",
+          }}
+        >
+          {listItems.map((item, index) => (
+            <li key={index} style={{ paddingLeft: "4px", marginBottom: "6px" }}>
+              {parseInlineMarkdown(item)}
+            </li>
+          ))}
+        </ListTag>
+      );
+
+      listItems = [];
+      listType = null;
+    };
+
+    const flushCodeBlock = (key) => {
+      elements.push(
+        <pre
+          key={`code-${key}`}
+          style={{
+            background: "#111827",
+            color: "#e2e8f0",
+            padding: "18px",
+            borderRadius: "12px",
+            overflowX: "auto",
+            fontSize: "13px",
+            lineHeight: 1.7,
+            fontFamily: "monospace",
+            border: "1px solid #273449",
+            margin: "16px 0 22px",
+            whiteSpace: "pre",
+          }}
+        >
+          <code>{codeBlockContent.join("\n")}</code>
+        </pre>
+      );
+
+      codeBlockContent = [];
+    };
+
+    lines.forEach((line, index) => {
+      if (line.trim().startsWith("```")) {
+        flushList(index);
+
+        if (inCodeBlock) {
+          flushCodeBlock(index);
+          inCodeBlock = false;
+        } else {
+          inCodeBlock = true;
+        }
+
+        return;
+      }
+
+      if (inCodeBlock) {
+        codeBlockContent.push(line);
+        return;
+      }
+
+      const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
+
+      if (headingMatch) {
+        flushList(index);
+
+        const level = headingMatch[1].length;
+        const headingSizes = {
+          1: "25px",
+          2: "22px",
+          3: "19px",
+          4: "17px",
+          5: "15px",
+          6: "14px",
+        };
+
+        elements.push(
+          <h2
+            key={`heading-${index}`}
+            style={{
+              fontSize: headingSizes[level],
+              fontWeight: 800,
+              lineHeight: 1.35,
+              color: theme.text,
+              margin: level <= 2 ? "26px 0 14px" : "20px 0 10px",
+              paddingBottom: level <= 2 ? "10px" : 0,
+              borderBottom: level <= 2 ? `1px solid ${theme.border}` : "none",
+            }}
+          >
+            {parseInlineMarkdown(headingMatch[2])}
+          </h2>
+        );
+
+        return;
+      }
+
+      const unorderedMatch = line.match(/^\s*[-*+]\s+(.+)/);
+      const orderedMatch = line.match(/^\s*\d+\.\s+(.+)/);
+
+      if (unorderedMatch || orderedMatch) {
+        const nextListType = orderedMatch ? "ordered" : "unordered";
+
+        if (listType && listType !== nextListType) {
+          flushList(index);
+        }
+
+        listType = nextListType;
+        listItems.push((unorderedMatch || orderedMatch)[1]);
+        return;
+      }
+
+      flushList(index);
+
+      if (/^\s*[-_*]{3,}\s*$/.test(line)) {
+        elements.push(
+          <hr
+            key={`hr-${index}`}
+            style={{
+              border: "none",
+              borderTop: `1px solid ${theme.border}`,
+              margin: "24px 0",
+            }}
+          />
+        );
+        return;
+      }
+
+      const quoteMatch = line.match(/^\s*>\s?(.*)/);
+
+      if (quoteMatch) {
+        elements.push(
+          <blockquote
+            key={`quote-${index}`}
+            style={{
+              margin: "16px 0",
+              padding: "12px 18px",
+              borderLeft: "3px solid #818cf8",
+              borderRadius: "0 10px 10px 0",
+              background: "#f5f3ff",
+              color: "#475569",
+            }}
+          >
+            {parseInlineMarkdown(quoteMatch[1])}
+          </blockquote>
+        );
+        return;
+      }
+
+      if (line.trim()) {
+        elements.push(
+          <p
+            key={`paragraph-${index}`}
+            style={{
+              margin: "0 0 14px",
+              color: "#334155",
+              lineHeight: 1.85,
+              overflowWrap: "anywhere",
+            }}
+          >
+            {parseInlineMarkdown(line)}
+          </p>
+        );
+      }
+    });
+
+    flushList("end");
+
+    if (inCodeBlock) {
+      flushCodeBlock("end");
+    }
+
+    return elements;
+  };
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        overflowWrap: "anywhere",
+        wordBreak: "normal",
+      }}
+    >
+      {renderMarkdown(content)}
+    </div>
+  );
 };
 
-// ─── Landing page data ─────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// LANDING PAGE CONTENT
+// ─────────────────────────────────────────────────────────────────────────────
+
 const FREE_FEATURES = [
-  { icon: '⚡', title: 'Quick Page Summary',  desc: 'Get the key ideas from any PDF page in seconds using AI — up to 10 times per month.' },
-  { icon: '💾', title: 'Saved Summaries',     desc: 'Every summary you generate is automatically saved to your personal library.' },
-  { icon: '📋', title: 'Copy & Export',       desc: 'Copy any summary to your clipboard instantly to paste into your notes.' },
-  { icon: '📊', title: 'Usage Dashboard',     desc: 'Track your monthly usage and view all your past summaries in one clean place.' },
+  {
+    icon: "⚡",
+    title: "Quick Page Summary",
+    desc: "Get the key ideas from any PDF page in seconds using AI — up to 10 times per month.",
+  },
+  {
+    icon: "💾",
+    title: "Saved Summaries",
+    desc: "Every summary you generate is automatically saved to your personal library.",
+  },
+  {
+    icon: "📋",
+    title: "Copy & Export",
+    desc: "Copy any summary to your clipboard instantly to paste into your notes.",
+  },
+  {
+    icon: "📊",
+    title: "Usage Dashboard",
+    desc: "Track your monthly usage and view all your past summaries in one clean place.",
+  },
 ];
 
 const PREMIUM_FEATURES = [
-  { icon: '📚', title: 'Multi-Page Summary',       desc: 'Summarize multiple pages at once — perfect for textbooks and long reports.' },
-  { icon: '♾️', title: 'Unlimited Summaries',   desc: 'No monthly cap. Summarize as many pages as you need, any time.' },
-  { icon: '🚀', title: 'Priority AI Processing',desc: 'Your requests are processed first — no waiting during peak hours.' },
-  { icon: '✨', title: 'All Future Features',   desc: 'Every new feature we ship is included in your Premium plan automatically.' },
+  {
+    icon: "📚",
+    title: "Multi-Page Summary",
+    desc: "Summarize multiple pages at once — perfect for textbooks and long reports.",
+  },
+  {
+    icon: "♾️",
+    title: "Unlimited Summaries",
+    desc: "No monthly cap. Summarize as many pages as you need, any time.",
+  },
+  {
+    icon: "🚀",
+    title: "Priority AI Processing",
+    desc: "Your requests are processed first — no waiting during peak hours.",
+  },
+  {
+    icon: "✨",
+    title: "All Future Features",
+    desc: "Every new feature we ship is included in your Premium plan automatically.",
+  },
 ];
 
 const HOW_IT_WORKS = [
-  { step: '01', title: 'Upload your PDF',     desc: 'Drop any PDF — textbooks, lecture notes, research papers, anything.' },
-  { step: '02', title: 'Navigate to a page',  desc: 'Use the built-in reader to go to the page or chapter you want to understand.' },
-  { step: '03', title: 'Tap the ⚡ button',   desc: 'Hit the floating button and choose Quick Summary or Multi-Page Summary.' },
-  { step: '04', title: 'Read and retain',     desc: 'Get a clear summary in seconds. Saved automatically to your library.' },
+  {
+    step: "01",
+    title: "Upload your PDF",
+    desc: "Choose a PDF — textbooks, lecture notes, research papers, and more.",
+  },
+  {
+    step: "02",
+    title: "Navigate to a page",
+    desc: "Use the built-in reader to find the page or chapter you want to understand.",
+  },
+  {
+    step: "03",
+    title: "Choose a summary",
+    desc: "Open the floating action button and choose Quick Summary or Multi-Page Summary.",
+  },
+  {
+    step: "04",
+    title: "Read and retain",
+    desc: "Get a clear summary and save it to your personal library.",
+  },
 ];
 
-// ─── LandingPage component ────────────────────────────────────────────────
-function LandingPage({ onUpload, onSample, navigate, openSignUp }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// REUSABLE LANDING PAGE COMPONENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SectionHeading({ eyebrow, title, description, green = false }) {
   return (
-    <div style={{ width:'100%', backgroundColor:'#f5f5f5', fontFamily:"'Outfit','Segoe UI',sans-serif" }}>
+    <div style={{ textAlign: "center", marginBottom: "44px" }}>
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "8px",
+          padding: "7px 13px",
+          marginBottom: "16px",
+          borderRadius: "100px",
+          background: green ? "#f0fdf4" : "#eef2ff",
+          border: `1px solid ${green ? "#bbf7d0" : "#c7d2fe"}`,
+          color: green ? "#15803d" : "#4338ca",
+          fontSize: "11px",
+          fontWeight: 800,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+        }}
+      >
+        {green && (
+          <span
+            style={{
+              width: "7px",
+              height: "7px",
+              borderRadius: "50%",
+              background: "#22c55e",
+            }}
+          />
+        )}
+        {eyebrow}
+      </div>
 
-      {/* ── HERO ── */}
-      <section style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'80px 20px 60px', boxSizing:'border-box' }}>
-        <div style={{ maxWidth:'500px', width:'100%', display:'flex', flexDirection:'column', alignItems:'center', gap:'24px' }}>
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center', padding:'1rem 0.5rem 0.5rem' }}>
-            <div style={{ display:'inline-flex', alignItems:'center', gap:7, borderRadius:100, background:'#f0fdf4', border:'1px solid #bbf7d0', fontSize:11.5, fontWeight:600, letterSpacing:'0.12em', textTransform:'uppercase', color:'#15803d', fontFamily:"'Outfit',sans-serif", marginBottom:'2rem', padding:'5px 14px' }}>
-              <span style={{ width:7, height:7, borderRadius:'50%', background:'#22c55e' }} />
-              AI-Powered Study Tool
-            </div>
-            <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(28px,7vw,56px)', fontWeight:900, lineHeight:1.05, letterSpacing:'-0.02em', color:'#0f172a', margin:'0 0 0.15em', maxWidth:680 }}>
-              Essential Summary:<br />Students'{' '}
-              <em style={{ fontStyle:'italic', position:'relative', display:'inline-block' }}>
-                Reading
-                <svg viewBox="0 0 220 14" style={{ position:'absolute', bottom:-6, left:-2, width:'calc(100% + 4px)', height:14 }} xmlns="http://www.w3.org/2000/svg">
-                  <path d="M4 10 Q55 3 110 8 Q165 13 218 6" stroke="#22c55e" strokeWidth="3.5" strokeLinecap="round" fill="none" opacity="0.85"/>
-                  <path d="M8 13 Q60 7 112 11 Q164 15 216 9" stroke="#86efac" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.5"/>
-                </svg>
-              </em>{' '}Cheat Code
+      <h2
+        style={{
+          fontFamily: headingFont,
+          fontSize: "clamp(25px, 4vw, 37px)",
+          fontWeight: 900,
+          letterSpacing: "-0.035em",
+          lineHeight: 1.2,
+          color: theme.text,
+          margin: "0 0 12px",
+        }}
+      >
+        {title}
+      </h2>
+
+      <p
+        style={{
+          fontSize: "15px",
+          color: theme.textSecondary,
+          lineHeight: 1.8,
+          maxWidth: "500px",
+          margin: "0 auto",
+        }}
+      >
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function LandingPage({ onUpload, navigate, openSignUp }) {
+  const fileInputRef = useRef(null);
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const sectionStyle = {
+    width: "100%",
+    padding: "76px 20px",
+    boxSizing: "border-box",
+  };
+
+  const containerStyle = {
+    maxWidth: "1000px",
+    margin: "0 auto",
+    width: "100%",
+  };
+
+  const footerLinkStyle = {
+    background: "none",
+    border: "none",
+    color: "#64748b",
+    fontSize: "13px",
+    cursor: "pointer",
+    padding: 0,
+    textAlign: "left",
+    fontFamily: pageFont,
+    transition: "color 180ms ease",
+  };
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        minHeight: "100vh",
+        overflowX: "clip",
+        background: theme.background,
+        color: theme.text,
+        fontFamily: pageFont,
+      }}
+    >
+      {/* HERO */}
+      <section
+        style={{
+          ...sectionStyle,
+          minHeight: "min(850px, 100svh)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          paddingTop: "66px",
+          paddingBottom: "72px",
+          position: "relative",
+          isolation: "isolate",
+          background:
+            "radial-gradient(ellipse at 12% 15%, rgba(99,102,241,0.10), transparent 38%), radial-gradient(ellipse at 88% 55%, rgba(56,189,248,0.10), transparent 34%), #f6f8fc",
+        }}
+      >
+        <div
+          style={{
+            ...containerStyle,
+            maxWidth: "780px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "30px",
+          }}
+        >
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 14px",
+              borderRadius: "100px",
+              background: "rgba(255,255,255,0.88)",
+              border: "1px solid #dbe4ff",
+              boxShadow: "0 4px 18px rgba(79,70,229,0.06)",
+              color: "#4338ca",
+              fontSize: "11px",
+              fontWeight: 800,
+              letterSpacing: "0.11em",
+              textTransform: "uppercase",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: "7px",
+                height: "7px",
+                borderRadius: "50%",
+                background: "#22c55e",
+                boxShadow: "0 0 0 4px rgba(34,197,94,0.12)",
+              }}
+            />
+            AI-powered study companion
+          </div>
+
+          <div style={{ textAlign: "center", width: "100%" }}>
+            <h1
+              style={{
+                fontFamily: headingFont,
+                fontSize: "clamp(34px, 7vw, 66px)",
+                fontWeight: 900,
+                lineHeight: 1.1,
+                letterSpacing: "-0.045em",
+                color: theme.text,
+                margin: "0 auto",
+                maxWidth: "780px",
+              }}
+            >
+              Essential Summary:
+              <br />
+              Your smarter way to{" "}
+              <span
+                style={{
+                  background:
+                    "linear-gradient(110deg, #4f46e5 10%, #7c3aed 55%, #0891b2 100%)",
+                  backgroundClip: "text",
+                  WebkitBackgroundClip: "text",
+                  color: "transparent",
+                  display: "inline-block",
+                  paddingBottom: "5px",
+                }}
+              >
+                study.
+              </span>
             </h1>
-            <div style={{ width:48, height:4, background:'linear-gradient(90deg,#22c55e,#16a34a)', borderRadius:4, margin:'1.75rem 0 0' }} />
-            <p style={{ fontFamily:"'Outfit',sans-serif", fontSize:'clamp(14px,2.5vw,17px)', color:'#64748b', marginTop:'1.5rem', lineHeight:1.6, maxWidth:440 }}>
-              Transform dense material into <strong style={{ fontWeight:600, color:'#334155' }}>clear, concise summaries</strong> — so students read less and remember more.
+
+            <p
+              style={{
+                maxWidth: "570px",
+                margin: "22px auto 0",
+                fontSize: "clamp(15px, 2.3vw, 18px)",
+                lineHeight: 1.85,
+                color: theme.textSecondary,
+              }}
+            >
+              Transform dense PDFs into{" "}
+              <strong style={{ color: "#334155", fontWeight: 700 }}>
+                clear, concise summaries
+              </strong>{" "}
+              so you can focus on understanding what matters.
             </p>
-            <div style={{ display:'flex', marginTop:'1.0rem', border:'1px solid #e2e8f0', borderRadius:16, overflow:'hidden', background:'#fff' }}>
-              {[['3×','Faster reading'],['85%','Retention boost'],['ALL','Students']].map(([num,label],i,arr) => (
-                <div key={i} style={{ padding:'14px 28px', display:'flex', flexDirection:'column', alignItems:'center', gap:2, borderRight: i<arr.length-1?'1px solid #e2e8f0':'none' }}>
-                  <span style={{ fontFamily:"'Playfair Display',serif", fontSize:22, fontWeight:900, color:'#0f172a', lineHeight:1 }}>{num}</span>
-                  <span style={{ fontFamily:"'Outfit',sans-serif", fontSize:11, fontWeight:500, color:'#94a3b8', letterSpacing:'0.05em', textTransform:'uppercase' }}>{label}</span>
-                </div>
-              ))}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              flexWrap: "wrap",
+              gap: "10px",
+            }}
+          >
+            {[
+              ["✦", "AI-powered summaries"],
+              ["✓", "Personal summary library"],
+              ["⚡", "Quick page insights"],
+            ].map(([icon, label]) => (
+              <div
+                key={label}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  padding: "9px 12px",
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: "100px",
+                  background: "rgba(255,255,255,0.76)",
+                  color: "#475569",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                }}
+              >
+                <span style={{ color: theme.blue }}>{icon}</span>
+                {label}
+              </div>
+            ))}
+          </div>
+
+          {/* PDF UPLOAD CARD */}
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "590px",
+              boxSizing: "border-box",
+              padding: "clamp(22px, 5vw, 36px)",
+              borderRadius: "24px",
+              background: "rgba(255,255,255,0.94)",
+              border: "1px solid rgba(226,232,240,0.95)",
+              boxShadow:
+                "0 24px 70px rgba(30,41,59,0.08), 0 3px 10px rgba(30,41,59,0.03)",
+            }}
+          >
+            <div
+              style={{
+                width: "58px",
+                height: "58px",
+                margin: "0 auto 16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "17px",
+                background: "linear-gradient(135deg, #eef2ff, #f5f3ff)",
+                border: "1px solid #e0e7ff",
+                fontSize: "27px",
+              }}
+            >
+              📄
             </div>
+
+            <h2
+              style={{
+                fontSize: "19px",
+                fontWeight: 800,
+                textAlign: "center",
+                margin: "0 0 7px",
+                color: theme.text,
+              }}
+            >
+              Start with your PDF
+            </h2>
+
+            <p
+              style={{
+                textAlign: "center",
+                color: theme.textSecondary,
+                fontSize: "13px",
+                lineHeight: 1.7,
+                margin: "0 0 24px",
+              }}
+            >
+              Upload your document and turn lengthy reading into focused
+              learning.
+            </p>
+
+            <input
+              ref={fileInputRef}
+              id="file-upload"
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={onUpload}
+              style={{
+                position: "absolute",
+                width: "1px",
+                height: "1px",
+                padding: 0,
+                margin: "-1px",
+                overflow: "hidden",
+                clip: "rect(0, 0, 0, 0)",
+                whiteSpace: "nowrap",
+                border: 0,
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={openFilePicker}
+              style={{
+                ...buttonBase,
+                width: "100%",
+                padding: "16px 20px",
+                border: "1px solid #4f46e5",
+                background: "linear-gradient(110deg, #4f46e5, #6d5ce8)",
+                color: "#ffffff",
+                boxShadow: "0 8px 20px rgba(79,70,229,0.22)",
+                fontSize: "15px",
+              }}
+              onMouseEnter={(event) => {
+                event.currentTarget.style.background =
+                  "linear-gradient(110deg, #4338ca, #5b4bd8)";
+                event.currentTarget.style.transform = "translateY(-1px)";
+                event.currentTarget.style.boxShadow =
+                  "0 12px 24px rgba(79,70,229,0.28)";
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.background =
+                  "linear-gradient(110deg, #4f46e5, #6d5ce8)";
+                event.currentTarget.style.transform = "translateY(0)";
+                event.currentTarget.style.boxShadow =
+                  "0 8px 20px rgba(79,70,229,0.22)";
+              }}
+            >
+              <span style={{ fontSize: "18px" }}>↑</span>
+              Upload PDF File
+            </button>
+
+            <p
+              style={{
+                margin: "13px 0 0",
+                textAlign: "center",
+                color: theme.textMuted,
+                fontSize: "12px",
+                lineHeight: 1.6,
+              }}
+            >
+              PDF documents only · Select a file from your device
+            </p>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                margin: "22px 0",
+                color: "#94a3b8",
+                fontSize: "11px",
+                fontWeight: 700,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+              }}
+            >
+              <span style={{ flex: 1, height: "1px", background: theme.border }} />
+              or
+              <span style={{ flex: 1, height: "1px", background: theme.border }} />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("/image-summary")}
+              style={{
+                ...buttonBase,
+                width: "100%",
+                padding: "15px 20px",
+                background: "#ffffff",
+                color: "#334155",
+                border: `1px solid ${theme.border}`,
+                fontSize: "14px",
+              }}
+              onMouseEnter={(event) => {
+                event.currentTarget.style.background = "#f8faff";
+                event.currentTarget.style.borderColor = "#c7d2fe";
+                event.currentTarget.style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.background = "#ffffff";
+                event.currentTarget.style.borderColor = theme.border;
+                event.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              <span style={{ fontSize: "18px" }}>▧</span>
+              Upload Photo of a Page
+            </button>
           </div>
 
-          <div style={{ backgroundColor:'white', padding:'clamp(24px,5vw,40px)', borderRadius:'12px', boxShadow:'0 2px 10px rgba(0,0,0,0.1)', width:'100%', boxSizing:'border-box' }}>
-            <label htmlFor="file-upload" style={{ display:'block', width:'100%', padding:'clamp(12px,3vw,16px) clamp(16px,4vw,24px)', backgroundColor:'#0066cc', color:'white', borderRadius:'8px', textAlign:'center', cursor:'pointer', fontSize:'clamp(14px,3.5vw,16px)', fontWeight:'500', marginBottom:'16px', transition:'background-color 0.2s', boxSizing:'border-box', border:'none' }}
-              onMouseEnter={(e)=>e.target.style.backgroundColor='#0052a3'}
-              onMouseLeave={(e)=>e.target.style.backgroundColor='#0066cc'}
-            >Upload PDF File</label>
-            <input id="file-upload" type="file" accept="application/pdf" onChange={onUpload} style={{ display:'none' }} />
-            <div style={{ textAlign:'center', margin:'16px 0', color:'#666', fontSize:'clamp(13px,3vw,14px)' }}>or</div>
-            <button onClick={() => navigate('/image-summary')} style={{ width:'100%', padding:'clamp(12px,3vw,16px) clamp(16px,4vw,24px)', backgroundColor:'#f0f0f0', color:'#333', border:'1px solid #ddd', borderRadius:'8px', cursor:'pointer', fontSize:'clamp(14px,3.5vw,16px)', fontWeight:'500', transition:'background-color 0.2s', boxSizing:'border-box' }}
-              onMouseEnter={(e)=>e.target.style.backgroundColor='#e5e5e5'}
-              onMouseLeave={(e)=>e.target.style.backgroundColor='#f0f0f0'}
-            >Upload Photo Of Page</button>
-          </div>
-
-          <p style={{ color:'#666', fontSize:'clamp(13px,3vw,14px)', textAlign:'center', lineHeight:'1.5', margin:0, padding:'0 10px' }}>
-            Upload a PDF and use the AI-powered floating button to summarize pages
+          <p
+            style={{
+              margin: 0,
+              color: "#94a3b8",
+              fontSize: "12px",
+              textAlign: "center",
+              lineHeight: 1.7,
+              maxWidth: "440px",
+            }}
+          >
+            Your study workflow, simplified — from your first upload to your
+            personal summary library.
           </p>
         </div>
       </section>
 
-      {/* ── HOW IT WORKS ── */}
-      <section style={{ padding:'80px 20px', backgroundColor:'#ffffff' }}>
-        <div style={{ maxWidth:'860px', margin:'0 auto' }}>
-          <div style={{ textAlign:'center', marginBottom:'56px' }}>
-            <div style={{ display:'inline-flex', alignItems:'center', borderRadius:100, background:'#eff6ff', border:'1px solid #bfdbfe', fontSize:11.5, fontWeight:600, letterSpacing:'0.12em', textTransform:'uppercase', color:'#1d4ed8', padding:'5px 14px', marginBottom:'16px' }}>
-              Simple process
-            </div>
-            <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(24px,5vw,36px)', fontWeight:900, color:'#0f172a', margin:'0 0 12px', letterSpacing:'-0.02em' }}>How it works</h2>
-            <p style={{ fontSize:'16px', color:'#64748b', margin:'0 auto', maxWidth:440, lineHeight:1.6 }}>From PDF to insight in four simple steps.</p>
-          </div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:'24px' }}>
-            {HOW_IT_WORKS.map((item,i) => (
-              <div key={i} style={{ padding:'28px 24px', background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:'14px', display:'flex', flexDirection:'column', gap:'12px' }}>
-                <span style={{ fontFamily:"'Playfair Display',serif", fontSize:'36px', fontWeight:900, color:'#e2e8f0', lineHeight:1, letterSpacing:'-0.04em' }}>{item.step}</span>
-                <h3 style={{ fontSize:'15px', fontWeight:700, color:'#0f172a', margin:0 }}>{item.title}</h3>
-                <p style={{ fontSize:'13.5px', color:'#64748b', margin:0, lineHeight:1.6 }}>{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* HOW IT WORKS */}
+      <section
+        style={{
+          ...sectionStyle,
+          background: "#ffffff",
+          borderTop: `1px solid ${theme.border}`,
+          borderBottom: `1px solid ${theme.border}`,
+        }}
+      >
+        <div style={containerStyle}>
+          <SectionHeading
+            eyebrow="Simple process"
+            title="From PDF to insight"
+            description="Four simple steps help you move from lengthy documents to clearer understanding."
+          />
 
-      {/* ── FREE PLAN FEATURES ── */}
-      <section style={{ padding:'80px 20px', backgroundColor:'#f5f5f5' }}>
-        <div style={{ maxWidth:'860px', margin:'0 auto' }}>
-          <div style={{ textAlign:'center', marginBottom:'56px' }}>
-            <div style={{ display:'inline-flex', alignItems:'center', gap:7, borderRadius:100, background:'#f0fdf4', border:'1px solid #bbf7d0', fontSize:11.5, fontWeight:600, letterSpacing:'0.12em', textTransform:'uppercase', color:'#15803d', padding:'5px 14px', marginBottom:'16px' }}>
-              <span style={{ width:7, height:7, borderRadius:'50%', background:'#22c55e' }} />
-              Free plan
-            </div>
-            <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(24px,5vw,36px)', fontWeight:900, color:'#0f172a', margin:'0 0 12px', letterSpacing:'-0.02em' }}>Everything in the free account</h2>
-            <p style={{ fontSize:'16px', color:'#64748b', margin:'0 auto', maxWidth:460, lineHeight:1.6 }}>Create a free account and start summarizing immediately — no credit card required.</p>
-          </div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:'20px', marginBottom:'40px' }}>
-            {FREE_FEATURES.map((f,i) => (
-              <div key={i}
-                style={{ background:'#ffffff', border:'1.5px solid #e2e8f0', borderRadius:'14px', padding:'24px 22px', display:'flex', flexDirection:'column', gap:'10px', boxShadow:'0 1px 4px rgba(0,0,0,0.04)', transition:'box-shadow 0.2s,transform 0.2s' }}
-                onMouseEnter={(e)=>{ e.currentTarget.style.boxShadow='0 6px 20px rgba(0,0,0,0.08)'; e.currentTarget.style.transform='translateY(-2px)'; }}
-                onMouseLeave={(e)=>{ e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,0.04)'; e.currentTarget.style.transform='translateY(0)'; }}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))",
+              gap: "18px",
+            }}
+          >
+            {HOW_IT_WORKS.map((item) => (
+              <div
+                key={item.step}
+                style={{
+                  position: "relative",
+                  padding: "25px 22px",
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: "18px",
+                  background:
+                    "linear-gradient(145deg, #ffffff 0%, #f8faff 100%)",
+                  boxShadow: "0 4px 14px rgba(15,23,42,0.025)",
+                  transition:
+                    "transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
+                }}
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.transform = "translateY(-4px)";
+                  event.currentTarget.style.boxShadow =
+                    "0 14px 28px rgba(79,70,229,0.08)";
+                  event.currentTarget.style.borderColor = "#c7d2fe";
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.transform = "translateY(0)";
+                  event.currentTarget.style.boxShadow =
+                    "0 4px 14px rgba(15,23,42,0.025)";
+                  event.currentTarget.style.borderColor = theme.border;
+                }}
               >
-                <span style={{ fontSize:'26px', lineHeight:1 }}>{f.icon}</span>
-                <h3 style={{ fontSize:'15px', fontWeight:700, color:'#0f172a', margin:0 }}>{f.title}</h3>
-                <p style={{ fontSize:'13.5px', color:'#64748b', margin:0, lineHeight:1.6 }}>{f.desc}</p>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "45px",
+                    height: "45px",
+                    borderRadius: "13px",
+                    background: "#eef2ff",
+                    color: "#4f46e5",
+                    fontFamily: headingFont,
+                    fontSize: "18px",
+                    fontWeight: 900,
+                    marginBottom: "19px",
+                  }}
+                >
+                  {item.step}
+                </span>
+
+                <h3
+                  style={{
+                    margin: "0 0 9px",
+                    color: theme.text,
+                    fontSize: "15px",
+                    fontWeight: 800,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {item.title}
+                </h3>
+
+                <p
+                  style={{
+                    margin: 0,
+                    color: theme.textSecondary,
+                    fontSize: "13px",
+                    lineHeight: 1.8,
+                  }}
+                >
+                  {item.desc}
+                </p>
               </div>
             ))}
-          </div>
-          <div style={{ textAlign:'center' }}>
-            <button onClick={openSignUp}
-              style={{ display:'inline-flex', alignItems:'center', gap:'8px', padding:'14px 32px', backgroundColor:'#0f172a', color:'white', border:'none', borderRadius:'10px', fontSize:'15px', fontWeight:700, cursor:'pointer', fontFamily:"'Outfit',sans-serif", transition:'background 0.2s,transform 0.1s' }}
-              onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor='#1e293b'; e.currentTarget.style.transform='translateY(-1px)'; }}
-              onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor='#0f172a'; e.currentTarget.style.transform='translateY(0)'; }}
-            >Create free account →</button>
-            <p style={{ marginTop:'12px', fontSize:'13px', color:'#94a3b8' }}>No credit card needed · Free forever</p>
           </div>
         </div>
       </section>
 
-      {/* ── PREMIUM FEATURES ── */}
-      <section style={{ padding:'80px 20px', backgroundColor:'#0f172a' }}>
-        <div style={{ maxWidth:'860px', margin:'0 auto' }}>
-          <div style={{ textAlign:'center', marginBottom:'56px' }}>
-            <div style={{ display:'inline-flex', alignItems:'center', borderRadius:100, background:'rgba(250,204,21,0.12)', border:'1px solid rgba(250,204,21,0.3)', fontSize:11.5, fontWeight:600, letterSpacing:'0.12em', textTransform:'uppercase', color:'#fbbf24', padding:'5px 14px', marginBottom:'16px' }}>
+      {/* FREE PLAN */}
+      <section style={{ ...sectionStyle, background: theme.background }}>
+        <div style={containerStyle}>
+          <SectionHeading
+            eyebrow="Free plan"
+            title="Everything you need to get started"
+            description="Create a free account and start building a more effective study routine — no credit card required."
+            green
+          />
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 215px), 1fr))",
+              gap: "18px",
+              marginBottom: "34px",
+            }}
+          >
+            {FREE_FEATURES.map((feature) => (
+              <div
+                key={feature.title}
+                style={{
+                  padding: "24px 22px",
+                  background: "#ffffff",
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: "18px",
+                  boxShadow: "0 4px 16px rgba(15,23,42,0.025)",
+                  transition:
+                    "transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
+                }}
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.transform = "translateY(-3px)";
+                  event.currentTarget.style.boxShadow =
+                    "0 14px 30px rgba(15,23,42,0.07)";
+                  event.currentTarget.style.borderColor = "#c7d2fe";
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.transform = "translateY(0)";
+                  event.currentTarget.style.boxShadow =
+                    "0 4px 16px rgba(15,23,42,0.025)";
+                  event.currentTarget.style.borderColor = theme.border;
+                }}
+              >
+                <div
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "14px",
+                    background: "#f1f5ff",
+                    fontSize: "24px",
+                    marginBottom: "18px",
+                  }}
+                >
+                  {feature.icon}
+                </div>
+
+                <h3
+                  style={{
+                    fontSize: "15px",
+                    fontWeight: 800,
+                    color: theme.text,
+                    margin: "0 0 9px",
+                  }}
+                >
+                  {feature.title}
+                </h3>
+
+                <p
+                  style={{
+                    fontSize: "13px",
+                    color: theme.textSecondary,
+                    margin: 0,
+                    lineHeight: 1.8,
+                  }}
+                >
+                  {feature.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ textAlign: "center" }}>
+            <button
+              type="button"
+              onClick={openSignUp}
+              style={{
+                ...buttonBase,
+                padding: "15px 26px",
+                color: "#ffffff",
+                background: theme.dark,
+                border: `1px solid ${theme.dark}`,
+                boxShadow: "0 8px 20px rgba(15,23,42,0.12)",
+              }}
+              onMouseEnter={(event) => {
+                event.currentTarget.style.background = "#263247";
+                event.currentTarget.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.background = theme.dark;
+                event.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              Create free account <span aria-hidden="true">→</span>
+            </button>
+
+            <p
+              style={{
+                margin: "13px 0 0",
+                fontSize: "12px",
+                color: theme.textMuted,
+              }}
+            >
+              No credit card needed · Free to get started
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* PREMIUM PLAN */}
+      <section
+        style={{
+          ...sectionStyle,
+          background:
+            "radial-gradient(ellipse at 15% 0%, rgba(99,102,241,0.13), transparent 42%), radial-gradient(ellipse at 95% 95%, rgba(14,165,233,0.09), transparent 40%), #111827",
+        }}
+      >
+        <div style={containerStyle}>
+          <div style={{ textAlign: "center", marginBottom: "44px" }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                borderRadius: "100px",
+                background: "rgba(250,204,21,0.09)",
+                border: "1px solid rgba(250,204,21,0.23)",
+                fontSize: "11px",
+                fontWeight: 800,
+                letterSpacing: "0.11em",
+                textTransform: "uppercase",
+                color: "#fbbf24",
+                padding: "8px 14px",
+                marginBottom: "17px",
+              }}
+            >
               ⚡ Premium plan
             </div>
-            <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(24px,5vw,36px)', fontWeight:900, color:'#f1f5f9', margin:'0 0 12px', letterSpacing:'-0.02em' }}>Unlock your full potential</h2>
-            <p style={{ fontSize:'16px', color:'#94a3b8', margin:'0 auto', maxWidth:460, lineHeight:1.6 }}>For serious students who want zero limits and the full power of AI summarization.</p>
+
+            <h2
+              style={{
+                fontFamily: headingFont,
+                fontSize: "clamp(26px, 4vw, 39px)",
+                fontWeight: 900,
+                color: "#f8fafc",
+                margin: "0 0 13px",
+                letterSpacing: "-0.035em",
+                lineHeight: 1.2,
+              }}
+            >
+              Make more of every study session
+            </h2>
+
+            <p
+              style={{
+                fontSize: "15px",
+                color: "#a8b4c7",
+                margin: "0 auto",
+                maxWidth: "500px",
+                lineHeight: 1.8,
+              }}
+            >
+              Unlock multi-page summaries and a more flexible way to work
+              through lengthy study material.
+            </p>
           </div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:'20px', marginBottom:'40px' }}>
-            {PREMIUM_FEATURES.map((f,i) => (
-              <div key={i}
-                style={{ background:'rgba(255,255,255,0.05)', border:'1.5px solid rgba(255,255,255,0.1)', borderRadius:'14px', padding:'24px 22px', display:'flex', flexDirection:'column', gap:'10px', transition:'background 0.2s,transform 0.2s' }}
-                onMouseEnter={(e)=>{ e.currentTarget.style.background='rgba(255,255,255,0.09)'; e.currentTarget.style.transform='translateY(-2px)'; }}
-                onMouseLeave={(e)=>{ e.currentTarget.style.background='rgba(255,255,255,0.05)'; e.currentTarget.style.transform='translateY(0)'; }}
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 215px), 1fr))",
+              gap: "18px",
+              marginBottom: "36px",
+            }}
+          >
+            {PREMIUM_FEATURES.map((feature) => (
+              <div
+                key={feature.title}
+                style={{
+                  padding: "24px 22px",
+                  background: "rgba(255,255,255,0.045)",
+                  border: "1px solid rgba(255,255,255,0.11)",
+                  borderRadius: "18px",
+                  transition:
+                    "transform 180ms ease, background 180ms ease, border-color 180ms ease",
+                }}
+                onMouseEnter={(event) => {
+                  event.currentTarget.style.transform = "translateY(-3px)";
+                  event.currentTarget.style.background =
+                    "rgba(255,255,255,0.08)";
+                  event.currentTarget.style.borderColor =
+                    "rgba(165,180,252,0.4)";
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.transform = "translateY(0)";
+                  event.currentTarget.style.background =
+                    "rgba(255,255,255,0.045)";
+                  event.currentTarget.style.borderColor =
+                    "rgba(255,255,255,0.11)";
+                }}
               >
-                <span style={{ fontSize:'26px', lineHeight:1 }}>{f.icon}</span>
-                <h3 style={{ fontSize:'15px', fontWeight:700, color:'#f1f5f9', margin:0 }}>{f.title}</h3>
-                <p style={{ fontSize:'13.5px', color:'#94a3b8', margin:0, lineHeight:1.6 }}>{f.desc}</p>
+                <div
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "14px",
+                    background: "rgba(165,180,252,0.11)",
+                    border: "1px solid rgba(165,180,252,0.13)",
+                    fontSize: "24px",
+                    marginBottom: "18px",
+                  }}
+                >
+                  {feature.icon}
+                </div>
+
+                <h3
+                  style={{
+                    fontSize: "15px",
+                    fontWeight: 800,
+                    color: "#f8fafc",
+                    margin: "0 0 9px",
+                  }}
+                >
+                  {feature.title}
+                </h3>
+
+                <p
+                  style={{
+                    fontSize: "13px",
+                    color: "#a8b4c7",
+                    margin: 0,
+                    lineHeight: 1.8,
+                  }}
+                >
+                  {feature.desc}
+                </p>
               </div>
             ))}
           </div>
-          <div style={{ textAlign:'center' }}>
-            <button onClick={() => navigate('/pricing')}
-              style={{ display:'inline-flex', alignItems:'center', gap:'8px', padding:'14px 32px', backgroundColor:'#fbbf24', color:'#0f172a', border:'none', borderRadius:'10px', fontSize:'15px', fontWeight:800, cursor:'pointer', fontFamily:"'Outfit',sans-serif", transition:'background 0.2s,transform 0.1s' }}
-              onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor='#f59e0b'; e.currentTarget.style.transform='translateY(-1px)'; }}
-              onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor='#fbbf24'; e.currentTarget.style.transform='translateY(0)'; }}
-            >See Premium pricing →</button>
-            <p style={{ marginTop:'12px', fontSize:'13px', color:'#64748b' }}>30-day access · Cancel anytime</p>
+
+          <div style={{ textAlign: "center" }}>
+            <button
+              type="button"
+              onClick={() => navigate("/pricing")}
+              style={{
+                ...buttonBase,
+                padding: "15px 26px",
+                background: "#fbbf24",
+                color: "#111827",
+                border: "1px solid #fbbf24",
+                boxShadow: "0 8px 24px rgba(251,191,36,0.12)",
+              }}
+              onMouseEnter={(event) => {
+                event.currentTarget.style.background = "#fcd34d";
+                event.currentTarget.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.background = "#fbbf24";
+                event.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              Explore Premium <span aria-hidden="true">→</span>
+            </button>
+
+            <p
+              style={{
+                margin: "13px 0 0",
+                fontSize: "12px",
+                color: "#9ca9bc",
+              }}
+            >
+              Visit the pricing page for plan details
+            </p>
           </div>
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer style={{ backgroundColor:'#f1f5f9', padding:'16px 16px 24px', fontFamily:"'Outfit','Segoe UI',sans-serif" }}>
-        <div style={{ maxWidth:'860px', margin:'0 auto' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:'32px', marginBottom:'40px' }}>
+      {/* FOOTER */}
+      <footer
+        style={{
+          background: "#ffffff",
+          borderTop: `1px solid ${theme.border}`,
+          padding: "48px 20px 22px",
+          fontFamily: pageFont,
+        }}
+      >
+        <div style={containerStyle}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              flexWrap: "wrap",
+              gap: "40px",
+              marginBottom: "36px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+                maxWidth: "280px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                }}
+              >
+                <img
+                  src="/es.png"
+                  alt=""
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    objectFit: "contain",
+                    borderRadius: "12px",
+                  }}
+                />
 
-            {/* Brand */}
-            <div style={{ display:'flex', flexDirection:'column', gap:'10px', maxWidth:'260px' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:'9px' }}>
-                <img src="/es.png" alt="logo" style={{ width:"auto", height:64, borderRadius:6, objectFit:'contain' }} />
-                <span style={{ fontFamily:"'Playfair Display',serif", fontSize:'18px', fontWeight:900, color:'#0a0e1a', letterSpacing:'-0.2px' }}>Essential Summary</span>
+                <span
+                  style={{
+                    fontFamily: headingFont,
+                    fontSize: "19px",
+                    fontWeight: 900,
+                    color: theme.text,
+                    letterSpacing: "-0.4px",
+                  }}
+                >
+                  Essential Summary
+                </span>
               </div>
-              <p style={{ fontSize:'13.5px', color:'#0a0e1a', lineHeight:1.6, margin:0 }}>Helping students study smarter with AI-powered PDF summaries.</p>
+
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: theme.textSecondary,
+                  lineHeight: 1.8,
+                  margin: 0,
+                }}
+              >
+                Helping students study smarter with AI-powered PDF summaries.
+              </p>
             </div>
 
-            {/* Nav columns */}
-            <div style={{ display:'flex', gap:'48px', flexWrap:'wrap' }}>
-              <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-                <span style={{ fontSize:'11.5px', fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.08em' }}>Product</span>
-                {[['/', 'Home'], ['/pricing', 'Pricing'], ['/dashboard', 'Dashboard'], ['/summaries', 'Summaries'], ['/contact', 'Contact'], ['/image-summary', 'Image Summary']].map(([to, label]) => (
-                  <button key={to} onClick={() => navigate(to)}
-                    style={{ background:'none', border:'none', color:'#475569', fontSize:'14px', cursor:'pointer', padding:0, textAlign:'left', fontFamily:"'Outfit',sans-serif", transition:'color 0.15s' }}
-                    onMouseEnter={(e)=>e.target.style.color='#f1f5f9'}
-                    onMouseLeave={(e)=>e.target.style.color='#475569'}
-                  >{label}</button>
+            <div
+              style={{
+                display: "flex",
+                gap: "clamp(30px, 6vw, 68px)",
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 800,
+                    color: "#94a3b8",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    marginBottom: "3px",
+                  }}
+                >
+                  Product
+                </span>
+
+                {[
+                  ["/", "Home"],
+                  ["/pricing", "Pricing"],
+                  ["/dashboard", "Dashboard"],
+                  ["/summaries", "Summaries"],
+                  ["/contact", "Contact"],
+                  ["/image-summary", "Image Summary"],
+                ].map(([to, label]) => (
+                  <button
+                    type="button"
+                    key={to}
+                    onClick={() => navigate(to)}
+                    style={footerLinkStyle}
+                    onMouseEnter={(event) => {
+                      event.currentTarget.style.color = theme.blue;
+                    }}
+                    onMouseLeave={(event) => {
+                      event.currentTarget.style.color = "#64748b";
+                    }}
+                  >
+                    {label}
+                  </button>
                 ))}
               </div>
-              <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-                <span style={{ fontSize:'11.5px', fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.08em' }}>Account</span>
-                {[['/signup','Sign up'],['/signin','Sign in'],['/account','Profile'],['/pricing','Upgrade']].map(([to, label]) => (
-                  <button key={to} onClick={() => navigate(to)}
-                    style={{ background:'none', border:'none', color:'#475569', fontSize:'14px', cursor:'pointer', padding:0, textAlign:'left', fontFamily:"'Outfit',sans-serif", transition:'color 0.15s' }}
-                    onMouseEnter={(e)=>e.target.style.color='#f1f5f9'}
-                    onMouseLeave={(e)=>e.target.style.color='#475569'}
-                  >{label}</button>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 800,
+                    color: "#94a3b8",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    marginBottom: "3px",
+                  }}
+                >
+                  Account
+                </span>
+
+                {[
+                  ["/signup", "Sign up"],
+                  ["/signin", "Sign in"],
+                  ["/account", "Profile"],
+                  ["/pricing", "Upgrade"],
+                ].map(([to, label]) => (
+                  <button
+                    type="button"
+                    key={`${to}-${label}`}
+                    onClick={() => navigate(to)}
+                    style={footerLinkStyle}
+                    onMouseEnter={(event) => {
+                      event.currentTarget.style.color = theme.blue;
+                    }}
+                    onMouseLeave={(event) => {
+                      event.currentTarget.style.color = "#64748b";
+                    }}
+                  >
+                    {label}
+                  </button>
                 ))}
               </div>
             </div>
           </div>
 
-          <div style={{ height:'1px', background:'rgba(255,255,255,0.07)', marginBottom:'24px' }} />
+          <div
+            style={{
+              height: "1px",
+              background: theme.border,
+              marginBottom: "20px",
+            }}
+          />
 
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'12px' }}>
-            <p style={{ margin:0, fontSize:'13px', color:'#334155' }}>© {new Date().getFullYear()} Essential Summary. All rights reserved.</p>
-            <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
-              <span style={{ fontSize:'12px', color:'#334155' }}>Built for students, by DmC.</span>
-              <span style={{ fontSize:'14px' }}>📚</span>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "12px",
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                fontSize: "12px",
+                color: theme.textSecondary,
+                lineHeight: 1.7,
+              }}
+            >
+              © {new Date().getFullYear()} Essential Summary. All rights reserved.
+            </p>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "7px",
+                alignItems: "center",
+                fontSize: "12px",
+                color: theme.textSecondary,
+              }}
+            >
+              <span>Built for students, by DmC.</span>
+              <span aria-hidden="true">📚</span>
             </div>
           </div>
         </div>
       </footer>
 
-      <style>{`@media (max-width:768px){body{-webkit-text-size-adjust:100%;touch-action:manipulation;}}`}</style>
+      <style>{`
+        * {
+          box-sizing: border-box;
+        }
+
+        #file-upload:focus-visible + label {
+          outline: 3px solid #a5b4fc;
+          outline-offset: 4px;
+        }
+
+        button:focus-visible {
+          outline: 3px solid #a5b4fc;
+          outline-offset: 3px;
+        }
+
+        @media (max-width: 600px) {
+          body {
+            -webkit-text-size-adjust: 100%;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *,
+          *::before,
+          *::after {
+            scroll-behavior: auto !important;
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
 
-// ─── HomePage ──────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// HOMEPAGE
+// ─────────────────────────────────────────────────────────────────────────────
+
 function HomePage() {
-  const [pdfUrl, setPdfUrl]             = useState('');
+  const [pdfUrl, setPdfUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
-  const [currentPage, setCurrentPage]   = useState(1);
-  const [pdfDocument, setPdfDocument]   = useState(null);
-  const [showSummary, setShowSummary]   = useState(false);
-  const [summaryContent, setSummaryContent] = useState('');
-  const [summaryType, setSummaryType]   = useState('');
-  const [isLoading, setIsLoading]       = useState(false);
-  const [apiKey, setApiKey]             = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pdfDocument, setPdfDocument] = useState(null);
+
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryContent, setSummaryContent] = useState("");
+  const [summaryType, setSummaryType] = useState("");
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiKey, setApiKey] = useState("");
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [selectedModel, setSelectedModel]     = useState(OPENROUTER_MODELS.LLAMA_3_1_8B);
+  const [selectedModel, setSelectedModel] = useState(
+    OPENROUTER_MODELS.LLAMA_3_1_8B
+  );
 
   const { currentUser } = useAuth();
 
-  const { isOpen: isAuthModalOpen, modalMode, openModal: openAuthModal, closeModal: closeAuthModal } = useAuthModal();
-  const { isOpen: isUpgradeModalOpen, openUpgradeModal, closeUpgradeModal } = useUpgradeModal();
+  const {
+    isOpen: isAuthModalOpen,
+    modalMode,
+    openModal: openAuthModal,
+    closeModal: closeAuthModal,
+  } = useAuthModal();
+
+  const {
+    isOpen: isUpgradeModalOpen,
+    openUpgradeModal,
+    closeUpgradeModal,
+  } = useUpgradeModal();
 
   const [anonWarningMessage, setAnonWarningMessage] = useState(null);
-  const [userUsageProfile, setUserUsageProfile]     = useState(null);
-  const [isBannerVisible, setIsBannerVisible]       = useState(true);
+  const [userUsageProfile, setUserUsageProfile] = useState(null);
+  const [isBannerVisible, setIsBannerVisible] = useState(true);
 
-  const navigate     = useNavigate();
+  const navigate = useNavigate();
   const pdfReaderRef = useRef(null);
 
+  // Load the locally saved OpenRouter API key.
   useEffect(() => {
     const savedKey = getOpenRouterApiKey();
-    if (savedKey) setApiKey(savedKey);
+
+    if (savedKey) {
+      setApiKey(savedKey);
+    }
   }, []);
 
+  // Revoke temporary PDF URLs when the document changes or this component
+  // unmounts. Remote URLs are not revoked.
   useEffect(() => {
+    return () => {
+      if (pdfUrl && pdfUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+    };
+  }, [pdfUrl]);
+
+  // Load usage information for the current account.
+  useEffect(() => {
+    let cancelled = false;
+
     if (!currentUser) {
       setAnonWarningMessage(getSoftWarningMessage());
       setUserUsageProfile(null);
       setIsBannerVisible(true);
-    } else {
-      setAnonWarningMessage(null);
-      setIsBannerVisible(true);
-      checkAndResetIfNeeded(currentUser.uid)
-        .then((profile) => setUserUsageProfile(profile))
-        .catch((err) => console.error("Failed to load usage profile:", err));
+      return undefined;
     }
+
+    setAnonWarningMessage(null);
+    setIsBannerVisible(true);
+
+    checkAndResetIfNeeded(currentUser.uid)
+      .then((profile) => {
+        if (!cancelled) {
+          setUserUsageProfile(profile);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.error("Failed to load usage profile:", error);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [currentUser]);
 
+  // Handle the user's PDF selection.
   const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (file && file.type === 'application/pdf') {
-      setPdfUrl(URL.createObjectURL(file));
-      setSelectedFile(file.name);
-    } else {
-      alert('Please select a valid PDF file');
-    }
-  };
+    const input = event.target;
+    const file = input.files?.[0];
 
-  const loadSamplePDF = () => {
-    setPdfUrl('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf');
-    setSelectedFile('sample.pdf');
+    if (!file) return;
+
+    if (
+      file.type !== "application/pdf" &&
+      !file.name.toLowerCase().endsWith(".pdf")
+    ) {
+      alert("Please select a valid PDF file.");
+      input.value = "";
+      return;
+    }
+
+    const newPdfUrl = URL.createObjectURL(file);
+
+    setPdfUrl(newPdfUrl);
+    setSelectedFile(file.name);
+    setCurrentPage(1);
+    setPdfDocument(null);
+    setShowSummary(false);
+    setSummaryContent("");
+    setSummaryType("");
+
+    // Allows the same file to be selected again later.
+    input.value = "";
   };
 
   const checkApiKey = () => {
@@ -397,67 +1627,111 @@ function HomePage() {
       setShowApiKeyModal(true);
       return false;
     }
+
     return true;
   };
 
   const handleSaveApiKey = async () => {
-    if (!apiKey || apiKey.trim().length === 0) { alert('Please enter a valid API key'); return; }
+    const trimmedKey = apiKey.trim();
+
+    if (!trimmedKey) {
+      alert("Please enter a valid API key.");
+      return;
+    }
+
     setIsLoading(true);
-    const isValid = await validateOpenRouterKey(apiKey);
-    setIsLoading(false);
-    if (!isValid) { alert('Invalid API key. Please check and try again.'); return; }
-    saveOpenRouterApiKey(apiKey);
-    setShowApiKeyModal(false);
-    alert('API key saved successfully!');
+
+    try {
+      const isValid = await validateOpenRouterKey(trimmedKey);
+
+      if (!isValid) {
+        alert("Invalid API key. Please check it and try again.");
+        return;
+      }
+
+      saveOpenRouterApiKey(trimmedKey);
+      setApiKey(trimmedKey);
+      setShowApiKeyModal(false);
+      alert("API key saved successfully!");
+    } catch (error) {
+      console.error("API key validation failed:", error);
+      alert("Unable to validate the API key. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  // Check access without consuming a summary allowance.
+  // Usage is recorded only after a summary has been generated successfully.
   const checkUsageGate = useCallback(async () => {
     if (!currentUser) {
       if (hasReachedAnonymousQuickSummaryLimit()) {
-        openAuthModal('signup');
-        return { allowed: false, reason: 'anon_limit' };
+        openAuthModal("signup");
+        return { allowed: false, reason: "anon_limit" };
       }
-      incrementAnonymousQuickSummaryCount();
-      setAnonWarningMessage(null);
+
       setAnonWarningMessage(getSoftWarningMessage());
-      return { allowed: true, reason: 'anon_ok' };
+
+      return { allowed: true, reason: "anon_ok" };
     }
 
     let freshProfile;
+
     try {
       freshProfile = await checkAndResetIfNeeded(currentUser.uid);
-    } catch (err) {
-      console.error('usageGate: failed to load usage profile', err);
-      return { allowed: true, reason: 'firestore_error' };
+    } catch (error) {
+      console.error("Usage gate: failed to load usage profile", error);
+
+      // Fail closed if the usage service cannot confirm the user's allowance.
+      alert("We couldn't verify your summary allowance. Please try again.");
+      return { allowed: false, reason: "usage_check_failed" };
     }
 
     setUserUsageProfile(freshProfile);
 
     if (isPremiumActive(freshProfile)) {
-      return { allowed: true, reason: 'premium', profile: freshProfile };
+      return {
+        allowed: true,
+        reason: "premium",
+        profile: freshProfile,
+      };
     }
 
     const { allowed, reason } = canUserUseQuickSummary(freshProfile);
+
     if (!allowed) {
       setIsBannerVisible(false);
       openUpgradeModal();
+
       return { allowed: false, reason };
     }
 
-    return { allowed: true, reason, profile: freshProfile };
+    return {
+      allowed: true,
+      reason,
+      profile: freshProfile,
+    };
   }, [currentUser, openAuthModal, openUpgradeModal]);
 
+  // Generate a summary of the current PDF page.
   const handleSummarizePage = async () => {
+    if (isLoading) return;
+
     const gate = await checkUsageGate();
+
     if (!gate.allowed) return;
 
-    if (!pdfDocument) { alert('Please wait for the PDF to load'); return; }
+    if (!pdfDocument) {
+      alert("Please wait for the PDF to finish loading.");
+      return;
+    }
+
     if (!checkApiKey()) return;
 
     setIsLoading(true);
     setShowSummary(true);
-    setSummaryType('page');
-    setSummaryContent('Extracting text from current page...');
+    setSummaryType("page");
+    setSummaryContent("Extracting text from the current page...");
 
     let summarySucceeded = false;
 
@@ -465,115 +1739,186 @@ function HomePage() {
       const pageText = await extractTextFromPage(pdfDocument, currentPage);
 
       if (!pageText || pageText.trim().length === 0) {
-        setSummaryContent('No text found on this page. It may be an image or scanned document.');
-        setIsLoading(false);
+        setSummaryContent(
+          "No text was found on this page. It may contain an image or a scanned document."
+        );
         return;
       }
 
-      setSummaryContent(`Extracted ${pageText.split(/\s+/).length} words.\n\nGenerating AI summary...`);
+      const wordCount = pageText.split(/\s+/).filter(Boolean).length;
 
-      const summary = await summarizeWithOpenRouter(pageText, 'page', apiKey, { model: selectedModel });
+      setSummaryContent(
+        `Extracted ${wordCount} words.\n\nGenerating your AI summary...`
+      );
 
-      if (!summary || summary.trim().length === 0) {
-        setSummaryContent('Failed to generate summary. Please try again.');
-      } else {
-        setSummaryContent(
-          `📄 **Page ${currentPage} Summary**\n\n${summary}\n\n---\n` +
-          `**Word Count:** ${pageText.split(/\s+/).length} words`
-        );
-        summarySucceeded = true;
+      const summary = await summarizeWithOpenRouter(
+        pageText,
+        "page",
+        apiKey,
+        { model: selectedModel }
+      );
 
-        if (currentUser) {
-          saveSummary(currentUser.uid, {
-            fileName:    selectedFile ?? 'Untitled PDF',
-            summaryType: 'quick',
-            content:     summary,
-            pageNumber:  currentPage,
-            wordCount:   pageText.split(/\s+/).length,
-          }).catch((err) => console.error('Failed to save summary:', err));
-        }
+      if (!summary || !summary.trim()) {
+        setSummaryContent("Failed to generate a summary. Please try again.");
+        return;
+      }
+
+      setSummaryContent(
+        `📄 **Page ${currentPage} Summary**\n\n${summary}\n\n---\n**Word Count:** ${wordCount} words`
+      );
+
+      summarySucceeded = true;
+
+      if (currentUser) {
+        saveSummary(currentUser.uid, {
+          fileName: selectedFile ?? "Untitled PDF",
+          summaryType: "quick",
+          content: summary,
+          pageNumber: currentPage,
+          wordCount,
+        }).catch((error) => {
+          console.error("Failed to save summary:", error);
+        });
       }
     } catch (error) {
-      console.error('Error:', error);
-      setSummaryContent(`❌ Error: ${error.message}`);
+      console.error("Page summary error:", error);
+
+      setSummaryContent(
+        `Unable to generate the summary. ${error?.message || "Please try again."}`
+      );
     } finally {
       setIsLoading(false);
 
-      if (summarySucceeded && currentUser && gate.reason !== 'anon_ok') {
-        try {
-          await incrementQuickSummaryUsage(currentUser.uid);
-          const updated = await checkAndResetIfNeeded(currentUser.uid);
-          setUserUsageProfile(updated);
-          setIsBannerVisible(true);
-        } catch (err) {
-          console.error('Failed to increment usage:', err);
+      if (summarySucceeded) {
+        if (!currentUser) {
+          // Anonymous usage is counted only after successful generation.
+          incrementAnonymousQuickSummaryCount();
+          setAnonWarningMessage(getSoftWarningMessage());
+        } else {
+          try {
+            await incrementQuickSummaryUsage(currentUser.uid);
+
+            const updatedProfile = await checkAndResetIfNeeded(
+              currentUser.uid
+            );
+
+            setUserUsageProfile(updatedProfile);
+            setIsBannerVisible(true);
+          } catch (error) {
+            console.error("Failed to update summary usage:", error);
+          }
         }
       }
     }
   };
 
+  // Generate a summary of the chapter containing the current page.
   const handleSummarizeChapter = async () => {
-    if (!currentUser) { openAuthModal('signup'); return; }
+    if (isLoading) return;
+
+    if (!currentUser) {
+      openAuthModal("signup");
+      return;
+    }
 
     let freshProfile;
+
     try {
       freshProfile = await checkAndResetIfNeeded(currentUser.uid);
       setUserUsageProfile(freshProfile);
-    } catch (err) {
-      console.error('handleSummarizeChapter: failed to load profile', err);
-      freshProfile = userUsageProfile;
+    } catch (error) {
+      console.error("Failed to load chapter-summary profile:", error);
+
+      alert("We couldn't verify your Premium access. Please try again.");
+      return;
     }
 
-    if (!isPremiumActive(freshProfile)) { openUpgradeModal(); return; }
+    if (!isPremiumActive(freshProfile)) {
+      openUpgradeModal();
+      return;
+    }
 
-    if (!pdfDocument) { alert('Please wait for the PDF to load'); return; }
+    if (!pdfDocument) {
+      alert("Please wait for the PDF to finish loading.");
+      return;
+    }
+
     if (!checkApiKey()) return;
 
     setIsLoading(true);
     setShowSummary(true);
-    setSummaryType('chapter');
-    setSummaryContent('Detecting chapter boundaries and extracting text...');
+    setSummaryType("chapter");
+    setSummaryContent(
+      "Detecting chapter boundaries and extracting text..."
+    );
 
     try {
-      const chapterData = await extractCurrentChapter(pdfDocument, currentPage);
+      const chapterData = await extractCurrentChapter(
+        pdfDocument,
+        currentPage
+      );
 
-      if (!chapterData.text || chapterData.text.trim().length === 0) {
-        setSummaryContent('No text found in this chapter. The pages may contain only images.');
-        setIsLoading(false);
+      if (!chapterData.text || !chapterData.text.trim()) {
+        setSummaryContent(
+          "No text was found in this chapter. The pages may contain only images."
+        );
         return;
       }
 
-      const wordCount = chapterData.text.split(/\s+/).length;
-      setSummaryContent(`Analyzing chapter (Pages ${chapterData.startPage}–${chapterData.endPage}, ${wordCount} words)...\n\nGenerating AI summary...`);
+      const wordCount = chapterData.text
+        .split(/\s+/)
+        .filter(Boolean).length;
+
+      setSummaryContent(
+        `Analyzing chapter (pages ${chapterData.startPage}–${chapterData.endPage}, ${wordCount} words)...\n\nGenerating your AI summary...`
+      );
 
       let summary;
+
       if (chapterData.text.length > 10000) {
-        summary = await summarizeLongText(chapterData.text, 'chapter', apiKey, (progress, message) => {
-          setSummaryContent(`Analyzing chapter...\n\n${message}\nProgress: ${progress}%`);
-        });
+        summary = await summarizeLongText(
+          chapterData.text,
+          "chapter",
+          apiKey,
+          (progress, message) => {
+            setSummaryContent(
+              `Analyzing chapter...\n\n${message}\nProgress: ${progress}%`
+            );
+          }
+        );
       } else {
-        summary = await summarizeWithOpenRouter(chapterData.text, 'chapter', apiKey, { model: selectedModel });
+        summary = await summarizeWithOpenRouter(
+          chapterData.text,
+          "chapter",
+          apiKey,
+          { model: selectedModel }
+        );
       }
 
-      if (!summary || summary.trim().length === 0) {
-        setSummaryContent('Failed to generate summary. Please try again.');
-      } else {
-        setSummaryContent(
-          `📚 **Multi-Page Summary**\n\n**Pages:** ${chapterData.startPage}–${chapterData.endPage}\n\n${summary}\n\n---\n**Word Count:** ${wordCount} words`
-        );
-        if (currentUser) {
-          saveSummary(currentUser.uid, {
-            fileName:     selectedFile ?? 'Untitled PDF',
-            summaryType:  'chapter',
-            content:      summary,
-            chapterRange: `Pages ${chapterData.startPage}–${chapterData.endPage}`,
-            wordCount:    wordCount,
-          }).catch((err) => console.error('Failed to save chapter summary:', err));
-        }
+      if (!summary || !summary.trim()) {
+        setSummaryContent("Failed to generate a summary. Please try again.");
+        return;
       }
+
+      setSummaryContent(
+        `📚 **Multi-Page Summary**\n\n**Pages:** ${chapterData.startPage}–${chapterData.endPage}\n\n${summary}\n\n---\n**Word Count:** ${wordCount} words`
+      );
+
+      saveSummary(currentUser.uid, {
+        fileName: selectedFile ?? "Untitled PDF",
+        summaryType: "chapter",
+        content: summary,
+        chapterRange: `Pages ${chapterData.startPage}–${chapterData.endPage}`,
+        wordCount,
+      }).catch((error) => {
+        console.error("Failed to save chapter summary:", error);
+      });
     } catch (error) {
-      console.error('Chapter summary error:', error);
-      setSummaryContent(`❌ Error: ${error.message}`);
+      console.error("Chapter summary error:", error);
+
+      setSummaryContent(
+        `Unable to generate the chapter summary. ${error?.message || "Please try again."}`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -581,125 +1926,569 @@ function HomePage() {
 
   const closeSummary = () => {
     setShowSummary(false);
-    setSummaryContent('');
-    if (currentUser && userUsageProfile) setIsBannerVisible(true);
+    setSummaryContent("");
+
+    if (currentUser && userUsageProfile) {
+      setIsBannerVisible(true);
+    }
   };
 
   const handleUpgradeClick = () => {
     closeUpgradeModal();
-    navigate('/pricing');
+    navigate("/pricing");
   };
 
-  // ── No PDF loaded → full landing page ──
+  const handleCopySummary = async () => {
+    try {
+      await navigator.clipboard.writeText(summaryContent);
+      alert("Summary copied to clipboard!");
+    } catch (error) {
+      console.error("Failed to copy summary:", error);
+      alert(
+        "Unable to copy automatically. Please select the summary text and copy it manually."
+      );
+    }
+  };
+
+  // Landing page — no PDF has been selected.
   if (!pdfUrl) {
     return (
       <>
         <LandingPage
           onUpload={handleFileUpload}
-          onSample={loadSamplePDF}
           navigate={navigate}
-          openSignUp={() => openAuthModal('signup')}
+          openSignUp={() => openAuthModal("signup")}
         />
-        <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} onSuccess={closeAuthModal} initialMode={modalMode} />
-        <UpgradeModal isOpen={isUpgradeModalOpen} onClose={closeUpgradeModal} onUpgrade={handleUpgradeClick} userProfile={userUsageProfile} />
+
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={closeAuthModal}
+          onSuccess={closeAuthModal}
+          initialMode={modalMode}
+        />
+
+        <UpgradeModal
+          isOpen={isUpgradeModalOpen}
+          onClose={closeUpgradeModal}
+          onUpgrade={handleUpgradeClick}
+          userProfile={userUsageProfile}
+        />
       </>
     );
   }
 
-  // ── PDF loaded → reader view ──
+  // PDF reader view.
   return (
-    <div style={{ width:'100vw', height:'100vh', margin:0, padding:0, position:'relative' }}>
-      <div style={{ position:'relative', width:'100%', height:'100%' }}>
+    <div
+      style={{
+        width: "100%",
+        height: "100dvh",
+        minHeight: "100vh",
+        margin: 0,
+        padding: 0,
+        position: "relative",
+        overflow: "hidden",
+        background: theme.background,
+        fontFamily: pageFont,
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          height: "100%",
+        }}
+      >
         <PDFReader
           ref={pdfReaderRef}
           pdfUrl={pdfUrl}
-          fileName={selectedFile || 'document.pdf'}
+          fileName={selectedFile || "document.pdf"}
           onPageChange={(page) => setCurrentPage(page)}
           onPdfLoad={(pdf) => setPdfDocument(pdf)}
         />
 
         {!currentUser && anonWarningMessage && (
-          <div style={{ position:'fixed', bottom:'100px', left:'50%', transform:'translateX(-50%)', zIndex:10002, width:'calc(100% - 48px)', maxWidth:'480px' }}>
-            <SoftWarningBanner message={anonWarningMessage} onSignUp={() => openAuthModal('signup')} onClose={() => setAnonWarningMessage(null)} />
+          <div
+            style={{
+              position: "fixed",
+              bottom: "100px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 10002,
+              width: "calc(100% - 32px)",
+              maxWidth: "480px",
+            }}
+          >
+            <SoftWarningBanner
+              message={anonWarningMessage}
+              onSignUp={() => openAuthModal("signup")}
+              onClose={() => setAnonWarningMessage(null)}
+            />
           </div>
         )}
 
         {currentUser && userUsageProfile && isBannerVisible && (
-          <div style={{ position:'fixed', bottom:'100px', left:'50%', transform:'translateX(-50%)', zIndex:9998, width:'calc(100% - 48px)', maxWidth:'480px' }}>
-            <FreeTierBanner userProfile={userUsageProfile} onUpgrade={() => { setIsBannerVisible(false); openUpgradeModal(); }} onClose={() => setIsBannerVisible(false)} />
+          <div
+            style={{
+              position: "fixed",
+              bottom: "100px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 9998,
+              width: "calc(100% - 32px)",
+              maxWidth: "480px",
+            }}
+          >
+            <FreeTierBanner
+              userProfile={userUsageProfile}
+              onUpgrade={() => {
+                setIsBannerVisible(false);
+                openUpgradeModal();
+              }}
+              onClose={() => setIsBannerVisible(false)}
+            />
           </div>
         )}
 
-        <FloatingActionButton onSummarizePage={handleSummarizePage} onSummarizeChapter={handleSummarizeChapter} />
+        <FloatingActionButton
+          onSummarizePage={handleSummarizePage}
+          onSummarizeChapter={handleSummarizeChapter}
+        />
 
+        {/* SUMMARY MODAL */}
         {showSummary && (
-          <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, backgroundColor:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:10001, padding:'20px', backdropFilter:'blur(4px)' }}>
-            <div style={{ backgroundColor:'white', borderRadius:'16px', padding:'32px', maxWidth:'600px', width:'100%', maxHeight:'80vh', overflow:'auto', boxShadow:'0 20px 60px rgba(0,0,0,0.3)', position:'relative' }}>
-              <button onClick={closeSummary} style={{ position:'absolute', top:'16px', right:'16px', background:'none', border:'none', cursor:'pointer', padding:'8px', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center' }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-              ><span style={{ fontSize:'24px', color:'#666' }}>×</span></button>
-              <h2 style={{ fontSize:'24px', fontWeight:'600', marginBottom:'8px', color:'#333' }}>
-                {summaryType === 'page' ? '📄 Page Summary' : '📚 Multi-Page Summary'}
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15,23,42,0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10001,
+              padding: "clamp(10px, 3vw, 24px)",
+              backdropFilter: "blur(7px)",
+              WebkitBackdropFilter: "blur(7px)",
+            }}
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !isLoading) {
+                closeSummary();
+              }
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="summary-modal-title"
+              style={{
+                background: "#ffffff",
+                border: `1px solid ${theme.border}`,
+                borderRadius: "22px",
+                padding: "clamp(22px, 4vw, 34px)",
+                maxWidth: "680px",
+                width: "100%",
+                maxHeight: "min(84dvh, 850px)",
+                overflowY: "auto",
+                boxShadow: "0 28px 90px rgba(15,23,42,0.24)",
+                position: "relative",
+                color: theme.text,
+              }}
+            >
+              <button
+                type="button"
+                onClick={closeSummary}
+                disabled={isLoading}
+                aria-label="Close summary"
+                style={{
+                  position: "absolute",
+                  top: "16px",
+                  right: "16px",
+                  width: "36px",
+                  height: "36px",
+                  background: "#f8fafc",
+                  border: `1px solid ${theme.border}`,
+                  cursor: isLoading ? "not-allowed" : "pointer",
+                  borderRadius: "11px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: isLoading ? 0.5 : 1,
+                  color: "#475569",
+                  fontSize: "23px",
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  padding: "6px 11px",
+                  borderRadius: "100px",
+                  background: "#eef2ff",
+                  border: "1px solid #e0e7ff",
+                  color: "#4338ca",
+                  fontSize: "11px",
+                  fontWeight: 800,
+                  letterSpacing: "0.07em",
+                  textTransform: "uppercase",
+                  marginBottom: "15px",
+                }}
+              >
+                {summaryType === "page" ? "⚡ Quick summary" : "📚 Chapter summary"}
+              </div>
+
+              <h2
+                id="summary-modal-title"
+                style={{
+                  fontFamily: headingFont,
+                  fontSize: "clamp(23px, 4vw, 29px)",
+                  fontWeight: 900,
+                  lineHeight: 1.3,
+                  letterSpacing: "-0.025em",
+                  margin: "0 45px 8px 0",
+                  color: theme.text,
+                }}
+              >
+                {summaryType === "page"
+                  ? "Page Summary"
+                  : "Multi-Page Summary"}
               </h2>
-              <p style={{ fontSize:'14px', color:'#666', marginBottom:'24px' }}>
-                {summaryType === 'page' ? `Summary of page ${currentPage}` : 'Summary of multiple pages'}
+
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: theme.textSecondary,
+                  margin: "0 0 24px",
+                  lineHeight: 1.6,
+                }}
+              >
+                {summaryType === "page"
+                  ? `Summary of page ${currentPage}`
+                  : "Summary of multiple pages"}
               </p>
-              {isLoading && (
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'40px' }}>
-                  <div style={{ width:'40px', height:'40px', border:'4px solid #f3f3f3', borderTop:'4px solid #6366f1', borderRadius:'50%', animation:'spin 1s linear infinite' }} />
+
+              {isLoading ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "45px 15px",
+                    gap: "18px",
+                    background: theme.surfaceSoft,
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: "16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "42px",
+                      height: "42px",
+                      border: "4px solid #e0e7ff",
+                      borderTop: "4px solid #6366f1",
+                      borderRadius: "50%",
+                      animation: "es-spin 0.85s linear infinite",
+                    }}
+                  />
+
+                  <p
+                    style={{
+                      margin: 0,
+                      color: theme.textSecondary,
+                      fontSize: "13px",
+                      textAlign: "center",
+                      lineHeight: 1.7,
+                    }}
+                  >
+                    Working on your summary. This may take a moment.
+                  </p>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    fontSize: "14px",
+                    lineHeight: 1.85,
+                    color: "#334155",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  <MarkdownContent content={summaryContent} />
                 </div>
               )}
-              {!isLoading && <div style={{ fontSize:'15px', lineHeight:'1.8', color:'#333' }}><MarkdownContent content={summaryContent} /></div>}
+
               {!isLoading && (
-                <div style={{ marginTop:'24px', display:'flex', gap:'12px', justifyContent:'flex-end' }}>
-                  <button onClick={() => { navigator.clipboard.writeText(summaryContent); alert('Copied!'); }}
-                    style={{ padding:'10px 20px', backgroundColor:'#f0f0f0', color:'#333', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}
-                    onMouseEnter={(e) => e.target.style.backgroundColor = '#e5e5e5'}
-                    onMouseLeave={(e) => e.target.style.backgroundColor = '#f0f0f0'}
-                  >Copy to Clipboard</button>
-                  <button onClick={closeSummary}
-                    style={{ padding:'10px 20px', backgroundColor:'#6366f1', color:'white', border:'none', borderRadius:'8px', cursor:'pointer', fontSize:'14px', fontWeight:'500' }}
-                    onMouseEnter={(e) => e.target.style.backgroundColor = '#5558e3'}
-                    onMouseLeave={(e) => e.target.style.backgroundColor = '#6366f1'}
-                  >Close</button>
+                <div
+                  style={{
+                    marginTop: "26px",
+                    paddingTop: "20px",
+                    borderTop: `1px solid ${theme.border}`,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "10px",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={handleCopySummary}
+                    style={{
+                      ...buttonBase,
+                      background: "#ffffff",
+                      color: "#334155",
+                      border: `1px solid ${theme.border}`,
+                      fontSize: "13px",
+                      padding: "11px 16px",
+                    }}
+                    onMouseEnter={(event) => {
+                      event.currentTarget.style.background = "#f8fafc";
+                    }}
+                    onMouseLeave={(event) => {
+                      event.currentTarget.style.background = "#ffffff";
+                    }}
+                  >
+                    Copy to Clipboard
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={closeSummary}
+                    style={{
+                      ...buttonBase,
+                      background: theme.blue,
+                      color: "#ffffff",
+                      border: `1px solid ${theme.blue}`,
+                      fontSize: "13px",
+                      padding: "11px 20px",
+                    }}
+                    onMouseEnter={(event) => {
+                      event.currentTarget.style.background = theme.blueDark;
+                    }}
+                    onMouseLeave={(event) => {
+                      event.currentTarget.style.background = theme.blue;
+                    }}
+                  >
+                    Close
+                  </button>
                 </div>
               )}
             </div>
-            <style>{`@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}`}</style>
+
+            <style>{`
+              @keyframes es-spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
+
+              @media (prefers-reduced-motion: reduce) {
+                @keyframes es-spin {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(0deg); }
+                }
+              }
+            `}</style>
           </div>
         )}
       </div>
 
+      {/* OPENROUTER API KEY MODAL */}
       {showApiKeyModal && (
-        <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, backgroundColor:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:10002, padding:'20px' }}>
-          <div style={{ backgroundColor:'white', borderRadius:'16px', padding:'32px', maxWidth:'500px', width:'100%', boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}>
-            <h2 style={{ fontSize:'24px', fontWeight:'600', marginBottom:'16px', color:'#333' }}>Configure OpenRouter API Key</h2>
-            <p style={{ fontSize:'14px', color:'#666', marginBottom:'20px', lineHeight:'1.5' }}>
-              Get a <strong>free</strong> OpenRouter API key at{' '}
-              <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" style={{ color:'#6366f1', textDecoration:'none' }}>openrouter.ai/keys</a>
-              <br/><br/>No credit card required!
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,0.48)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10002,
+            padding: "16px",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="api-key-modal-title"
+            style={{
+              background: "#ffffff",
+              border: `1px solid ${theme.border}`,
+              borderRadius: "22px",
+              padding: "clamp(22px, 4vw, 32px)",
+              maxWidth: "500px",
+              width: "100%",
+              boxShadow: "0 28px 90px rgba(15,23,42,0.24)",
+            }}
+          >
+            <div
+              style={{
+                width: "48px",
+                height: "48px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#eef2ff",
+                border: "1px solid #e0e7ff",
+                borderRadius: "14px",
+                fontSize: "22px",
+                marginBottom: "17px",
+              }}
+            >
+              🔑
+            </div>
+
+            <h2
+              id="api-key-modal-title"
+              style={{
+                fontFamily: headingFont,
+                fontSize: "clamp(22px, 4vw, 27px)",
+                fontWeight: 900,
+                lineHeight: 1.3,
+                color: theme.text,
+                margin: "0 0 12px",
+              }}
+            >
+              Connect your AI key
+            </h2>
+
+            <p
+              style={{
+                fontSize: "13px",
+                color: theme.textSecondary,
+                margin: "0 0 22px",
+                lineHeight: 1.8,
+              }}
+            >
+              Get an OpenRouter API key at{" "}
+              <a
+                href="https://openrouter.ai/keys"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: theme.blue,
+                  fontWeight: 700,
+                  textDecoration: "underline",
+                  textUnderlineOffset: "3px",
+                }}
+              >
+                openrouter.ai/keys
+              </a>
+              . Check the provider's current terms and model pricing before
+              using your key.
             </p>
-            <label style={{ display:'block', fontSize:'14px', fontWeight:'500', color:'#333', marginBottom:'8px' }}>API Key:</label>
-            <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-or-v1-..."
-              style={{ width:'100%', padding:'12px', borderRadius:'8px', border:'1px solid #ddd', fontSize:'14px', fontFamily:'monospace', marginBottom:'20px' }}
+
+            <label
+              htmlFor="openrouter-api-key"
+              style={{
+                display: "block",
+                fontSize: "12px",
+                fontWeight: 800,
+                color: "#334155",
+                marginBottom: "8px",
+              }}
+            >
+              OpenRouter API key
+            </label>
+
+            <input
+              id="openrouter-api-key"
+              type="password"
+              autoComplete="off"
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+              placeholder="sk-or-v1-..."
+              style={{
+                display: "block",
+                width: "100%",
+                minWidth: 0,
+                padding: "13px 14px",
+                borderRadius: "11px",
+                border: `1px solid ${theme.border}`,
+                background: "#f8fafc",
+                color: theme.text,
+                fontSize: "13px",
+                fontFamily: "monospace",
+                marginBottom: "22px",
+                outlineColor: "#818cf8",
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !isLoading) {
+                  handleSaveApiKey();
+                }
+              }}
             />
-            <div style={{ display:'flex', gap:'12px', justifyContent:'flex-end' }}>
-              <button onClick={() => setShowApiKeyModal(false)} disabled={isLoading}
-                style={{ padding:'10px 20px', backgroundColor:'#f0f0f0', color:'#333', border:'none', borderRadius:'8px', cursor:isLoading?'not-allowed':'pointer', fontSize:'14px', fontWeight:'500', opacity:isLoading?0.5:1 }}
-              >Cancel</button>
-              <button onClick={handleSaveApiKey} disabled={isLoading}
-                style={{ padding:'10px 20px', backgroundColor:'#6366f1', color:'white', border:'none', borderRadius:'8px', cursor:isLoading?'not-allowed':'pointer', fontSize:'14px', fontWeight:'500', opacity:isLoading?0.5:1 }}
-              >{isLoading ? 'Validating...' : 'Save API Key'}</button>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "10px",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowApiKeyModal(false)}
+                disabled={isLoading}
+                style={{
+                  ...buttonBase,
+                  background: "#ffffff",
+                  color: "#475569",
+                  border: `1px solid ${theme.border}`,
+                  opacity: isLoading ? 0.55 : 1,
+                  cursor: isLoading ? "not-allowed" : "pointer",
+                  fontSize: "13px",
+                  padding: "11px 17px",
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveApiKey}
+                disabled={isLoading}
+                style={{
+                  ...buttonBase,
+                  background: theme.blue,
+                  color: "#ffffff",
+                  border: `1px solid ${theme.blue}`,
+                  opacity: isLoading ? 0.65 : 1,
+                  cursor: isLoading ? "not-allowed" : "pointer",
+                  fontSize: "13px",
+                  padding: "11px 17px",
+                }}
+              >
+                {isLoading ? "Validating..." : "Validate & Save"}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} onSuccess={closeAuthModal} initialMode={modalMode} />
-      <UpgradeModal isOpen={isUpgradeModalOpen} onClose={closeUpgradeModal} onUpgrade={handleUpgradeClick} userProfile={userUsageProfile} />
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={closeAuthModal}
+        onSuccess={closeAuthModal}
+        initialMode={modalMode}
+      />
+
+      <UpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={closeUpgradeModal}
+        onUpgrade={handleUpgradeClick}
+        userProfile={userUsageProfile}
+      />
     </div>
   );
 }
 
 export default HomePage;
+

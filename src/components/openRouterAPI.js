@@ -8,13 +8,13 @@
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // Available models on OpenRouter
+
 export const OPENROUTER_MODELS = {
-  // Meta Llama 3 8B - Free and reliable
-  LLAMA_3_1_8B: 'meta-llama/llama-3.1-8b-instruct',
+  GEMMA_4_31B: "google/gemma-4-31b-it:free",
 };
 
-// Default and only model
-const DEFAULT_MODEL = OPENROUTER_MODELS.LLAMA_3_1_8B;
+const DEFAULT_MODEL = OPENROUTER_MODELS.GEMMA_4_31B;
+
 
 /**
  * Call OpenRouter API directly (no backend needed - CORS friendly!)

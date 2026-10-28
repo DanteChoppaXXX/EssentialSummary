@@ -1,5 +1,5 @@
 // src/pages/ProfilePage.jsx
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   getPlanLabel,
@@ -14,8 +14,7 @@ export default function ProfilePage() {
   const navigate = useNavigate();
 
   if (!currentUser) {
-    navigate("/signin");
-    return null;
+    return <Navigate to="/signin" replace />;
   }
 
   async function handleSignOut() {
